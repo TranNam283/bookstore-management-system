@@ -35,7 +35,7 @@ function Category() {
   };
   return (
     <>
-      <div className="py-[1.3rem] px-[1.2rem] bg-[#f1f4f9]">
+      <div className="py-2 px-2 bg-[#f1f4f9]">
         <div className="flex justify-between items-center flex-wrap gap-[20px]">
           <h2 className=" text-[#74767d]">Nhà xuất bản ({totalItems})</h2>
 
@@ -43,17 +43,17 @@ function Category() {
             to={"/admin/add-publisher"}
             className="bg-[#C62028] border-0 cursor-pointer text-[0.9rem] font-medium w-[90px] !flex p-[10px_12px] items-center justify-center gap-[5px] text-white"
           >
-            <IoMdAddCircle size={22} /> Thêm
+            <IoMdAddCircle size={17} /> Thêm
           </Link>
         </div>
       </div>
 
       <div className=" bg-white w-full overflow-auto">
-        <div className="p-[1.2rem]">
+        <div className="p-2">
           <InputSearch />
         </div>
 
-        <table className="w-[350%] border-collapse sm:w-[220%] xl:w-full text-[0.9rem]">
+        <table className="admin-table">
           <thead>
             <tr className="bg-[#E9EDF2] text-left">
               <th className="p-[1rem]   ">Tên</th>
@@ -76,14 +76,14 @@ function Category() {
                   <td className="p-[1rem]  ">
                     <div className="flex items-center gap-[15px]">
                       <Link to={`/admin/edit-publisher/${publisher.id}`}>
-                        <LiaEdit size={22} className="text-[#076ffe]" />
+                        <LiaEdit size={17} className="text-[#076ffe]" />
                       </Link>
 
                       <button
                         disabled={isLoadingDelete}
                         onClick={() => handleDelete(publisher.id || "")}
                       >
-                        <VscTrash size={22} className="text-[#d9534f]" />
+                        <VscTrash size={17} className="text-[#d9534f]" />
                       </button>
                     </div>
                   </td>
@@ -91,7 +91,7 @@ function Category() {
               ))
             ) : (
               <tr>
-                <td colSpan={8} className="w-full h-[70vh]">
+                <td colSpan={8} className="w-full h-[30vh]">
                   <div className="flex justify-center items-center">
                     <Image
                       source={"/assets/notfound1.png"}

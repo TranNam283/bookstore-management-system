@@ -26,6 +26,9 @@ import CustomerPage from "./pages/admin/CustomerPage";
 import AddCustomerPage from "./pages/admin/AddCustomerPage";
 import EditCustomerPage from "./pages/admin/EditCustomerPage";
 import BookPage from "./pages/admin/BookPage";
+import ImportReceiptPage from "./pages/admin/ImportReceiptPage";
+import AddImportReceiptPage from "./pages/admin/AddImportReceiptPage";
+import StatisticsPage from "./pages/admin/StatisticsPage";
 import AddBookPage from "./pages/admin/AddBookPage";
 import EditBookPage from "./pages/admin/EditBookPage";
 import BookCategoryPage from "./pages/client/BookCategoryPage";
@@ -397,6 +400,42 @@ function LayoutRoute() {
         }
       />
 
+      <Route
+        path="/admin/import-receipts"
+        element={
+          <PrivateRoute
+            type="admin"
+            allowedRoles={[0, 1, 2]}
+            redirectPath="/admin/login"
+          >
+            <ImportReceiptPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/admin/add-import-receipt"
+        element={
+          <PrivateRoute
+            type="admin"
+            allowedRoles={[0, 1, 2]}
+            redirectPath="/admin/login"
+          >
+            <AddImportReceiptPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/admin/statistics"
+        element={
+          <PrivateRoute
+            type="admin"
+            allowedRoles={[0, 1, 2]}
+            redirectPath="/admin/login"
+          >
+            <StatisticsPage />
+          </PrivateRoute>
+        }
+      />
       <Route
         path="/admin/payments"
         element={

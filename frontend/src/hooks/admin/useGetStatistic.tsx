@@ -6,6 +6,10 @@ interface ResponseType {
   todayRevenue: number;
   totalSoldQuantity: number;
   todaySoldQuantity: number;
+  monthlyRevenue: { month: string; revenue: number }[];
+  totalImportCost?: number;
+  totalProfit?: number;
+  deliveredOrderCount?: number;
 }
 
 const fetcher = (url: string) => axios.get(url).then((res) => res.data);
@@ -22,6 +26,9 @@ export default function useGetStatistic() {
     todayRevenue: data?.todayRevenue ?? 0,
     totalSoldQuantity: data?.totalSoldQuantity ?? 0,
     todaySoldQuantity: data?.todaySoldQuantity ?? 0,
+    monthlyRevenue: data?.monthlyRevenue ?? [],
+    totalImportCost: data?.totalImportCost ?? 0,
+    totalProfit: data?.totalProfit ?? 0,
     isLoading,
     error,
     mutate,

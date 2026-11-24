@@ -46,6 +46,7 @@ export interface Book {
   author: Author;
   publisher: Publisher;
   totalSold?: number;
+  createdAt?: string;
 }
 
 export interface ImageBook {
@@ -76,7 +77,13 @@ export interface Order {
   paymethod: string;
   items: ProductBuy[];
   status: number;
-  total: number;
+  total: number; // tổng thanh toán (sau giảm)
+  subtotal?: number; // tổng tiền trước giảm
+  discountTotal?: number; // tổng tiền giảm
+  totalQuantity?: number;
+  staffId?: string | null; // nhân viên xác nhận đơn
+  staffName?: string | null;
+  confirmedAt?: string | null;
   createdAt: string;
 }
 
@@ -88,6 +95,9 @@ export interface ProductBuy {
   quantity: number;
   price: number;
   discount: number;
+  subtotal?: number; // quantity * price
+  discountAmount?: number; // quantity * discount
+  lineTotal?: number; // thành tiền
 }
 
 export interface OrderAdd {
@@ -145,3 +155,81 @@ export type Province = {
   province: string;
   wards: Ward[];
 };
+
+// ---------------------------------------------------------------- phiếu nhập
+export interface ImportReceiptItem {
+  bookId: string;
+  title?: string;
+  image?: string | null;
+  quantity: number;
+  importPrice: number;
+  lineTotal?: number;
+}
+
+export interface ImportReceipt {
+  id: string;
+  receiptCode: string;
+  publisherId?: string | null;
+  publisherName?: string | null;
+  staffId?: string | null;
+  staffName?: string | null;
+  note?: string | null;
+  totalQuantity: number;
+  totalAmount: number;
+  createdAt: string;
+  items: ImportReceiptItem[];
+}
+
+// ---------------------------------------------------------------- khách hàng (admin)
+export interface CustomerSummary {
+  id: string;
+  fullname: string;
+  email: string;
+  status: number;
+  createdAt: string;
+  cities: string[];
+  orderCount: number;
+  deliveredCount: number;
+  totalSpent: number;
+  lastOrderAt?: string | null;
+}
+
+// ---------------------------------------------------------------- tìm kiếm nâng cao
+export type SearchOperator = "=" | "!=" | ">" | "<" | ">=" | "<=" | "contains";
+
+export interface SearchCondition {
+  field: string;
+  operator: SearchOperator;
+  value: string;
+}
+
+export interface SearchGroup {
+  logic: "AND" | "OR";
+  conditions: SearchCondition[];
+}
+
+export interface AdvancedSearchRequest {
+  keyword?: string;
+  groups: SearchGroup[];
+  page: number;
+  limit: number;
+  sortBy?: string;
+  sortDir?: "asc" | "desc";
+}
+
+export interface SearchResponse<T> {
+  items: T[];
+  total: number;
+  totalPages: number;
+  page: number;
+  limit: number;
+  summary: Record<string, number>;
+  cachedAt?: string | null;
+}
+
+export interface SearchField {
+  key: string;
+  label: string;
+  type: "number" | "date" | "text" | "select";
+  options?: { value: string; label: string }[];
+}

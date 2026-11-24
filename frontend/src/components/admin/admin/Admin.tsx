@@ -75,7 +75,7 @@ function Admin() {
 
   return (
     <>
-      <div className="py-[1.3rem] px-[1.2rem] bg-[#f1f4f9]">
+      <div className="py-2 px-2 bg-[#f1f4f9]">
         <div className="flex justify-between items-center flex-wrap gap-[20px]">
           <h2 className=" text-[#74767d]">Quản trị viên ({totalItems})</h2>
 
@@ -83,17 +83,17 @@ function Admin() {
             to={"/admin/add-admin"}
             className="bg-[#C62028] border-0 cursor-pointer text-[0.9rem] font-medium w-[90px] !flex p-[10px_12px] items-center justify-center gap-[5px] text-white"
           >
-            <IoMdAddCircle size={22} /> Thêm
+            <IoMdAddCircle size={17} /> Thêm
           </Link>
         </div>
       </div>
 
       <div className=" bg-white w-full overflow-auto">
-        <div className="p-[1.2rem]">
+        <div className="p-2">
           <InputSearch />
         </div>
 
-        <table className="w-[350%] badmin.address-collapse sm:w-[220%] xl:w-full text-[0.9rem]">
+        <table className="admin-table">
           <thead>
             <tr className="bg-[#E9EDF2] text-left">
               <th className="p-[1rem]">Họ tên</th>
@@ -148,21 +148,21 @@ function Admin() {
                         }
                       >
                         {admin.status === 1 ? (
-                          <TbLock size={22} className="text-[#74767d]" />
+                          <TbLock size={17} className="text-[#74767d]" />
                         ) : (
-                          <TbLockOpen size={22} className="text-[#74767d]" />
+                          <TbLockOpen size={17} className="text-[#74767d]" />
                         )}
                       </button>
 
                       <Link to={`/admin/edit-admin/${admin.id}`}>
-                        <LiaEdit size={22} className="text-[#076ffe]" />
+                        <LiaEdit size={17} className="text-[#076ffe]" />
                       </Link>
 
                       <button
                         disabled={isLoadingDelete}
                         onClick={() => handleDelete(admin.id || "")}
                       >
-                        <VscTrash size={22} className="text-[#d9534f]" />
+                        <VscTrash size={17} className="text-[#d9534f]" />
                       </button>
                     </div>
                   </td>
@@ -170,7 +170,7 @@ function Admin() {
               ))
             ) : (
               <tr>
-                <td colSpan={8} className="w-full h-[70vh]">
+                <td colSpan={8} className="w-full h-[30vh]">
                   <div className="flex justify-center items-center">
                     <Image
                       source={"/assets/notfound1.png"}

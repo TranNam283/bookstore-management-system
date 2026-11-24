@@ -17,18 +17,18 @@ function Payment() {
 
   return (
     <>
-      <div className="py-[1.3rem] px-[1.2rem] bg-[#f1f4f9]">
+      <div className="py-2 px-2 bg-[#f1f4f9]">
         <div className="flex justify-between items-center">
           <h2 className=" text-[#74767d]">Thanh toán ({totalItems})</h2>
         </div>
       </div>
 
       <div className=" bg-white w-full overflow-auto">
-        <div className="p-[1.2rem]">
+        <div className="p-2">
           <InputSearch />
         </div>
 
-        <table className="w-[350%] border-collapse sm:w-[220%] xl:w-full text-[0.9rem]">
+        <table className="admin-table">
           <thead>
             <tr className="bg-[#E9EDF2] text-left">
               <th className="p-[1rem]   ">Mã đơn</th>
@@ -85,7 +85,7 @@ function Payment() {
               ))
             ) : (
               <tr>
-                <td colSpan={8} className="w-full h-[70vh]">
+                <td colSpan={8} className="w-full h-[30vh]">
                   <div className="flex justify-center items-center">
                     <Image
                       source={"/assets/notfound1.png"}

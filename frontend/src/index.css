@@ -297,3 +297,61 @@ span {
     text-underline-offset: 2px;
   }
 }
+
+/* ------------------------------------------------------------------
+   Bảng dữ liệu trang quản trị: gọn, nhiều dòng, dễ đọc số liệu
+   ------------------------------------------------------------------ */
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-family: "Segoe UI", Roboto, Arial, sans-serif;
+  color: #1f2937;
+}
+.admin-table,
+.admin-table * {
+  font-family: "Segoe UI", Roboto, Arial, sans-serif;
+}
+.admin-table th,
+.admin-table td {
+  padding: 4px 8px !important;
+  border-bottom: 1px solid #e5e7eb;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.admin-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #e9edf2;
+  font-weight: 600;
+  text-align: left;
+  border-bottom: 1px solid #cbd5e1;
+}
+.admin-table tbody tr:nth-child(even) {
+  background: #fafbfc;
+}
+.admin-table tbody tr:hover {
+  background: #eef4ff;
+}
+.admin-table tbody tr.is-selected {
+  background: #dbeafe;
+  outline: 1px solid #93c5fd;
+}
+.admin-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.admin-table tfoot td {
+  font-weight: 700;
+  background: #f1f5f9;
+  border-top: 2px solid #cbd5e1;
+}
+.admin-table .wrap {
+  white-space: normal;
+}
+.admin-table img {
+  width: 32px !important;
+  height: 32px !important;
+  object-fit: contain;
+}

@@ -59,7 +59,7 @@ function Pagination({ totalPages, currentPage, limit, totalItems }: Props) {
   return (
     <>
       {totalItems > 0 && (
-        <div className="flex items-center justify-center bg-white px-[15px] py-3 w-full my-[20px] flex-wrap gap-5 sm:gap-3 text-[0.9rem]">
+        <div className="flex items-center justify-center bg-white px-[15px] py-1.5 w-full border-t border-gray-200 flex-wrap gap-5 sm:gap-3 text-[0.9rem]">
           <div className="flex gap-2 items-center">
             Số dòng mỗi trang
             <select
@@ -67,10 +67,11 @@ function Pagination({ totalPages, currentPage, limit, totalItems }: Props) {
               onChange={handleLimitChange}
               className="p-1 border border-gray-300 focus:border-black text-[0.9rem]"
             >
-              <option value="12">12</option>
-              <option value="24">24</option>
-              <option value="36">36</option>
-              <option value="48">48</option>
+              {[12, 20, 50, 100].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
             </select>
           </div>
 
