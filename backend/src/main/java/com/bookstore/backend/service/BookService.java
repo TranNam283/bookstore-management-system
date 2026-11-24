@@ -1,11 +1,16 @@
 package com.bookstore.backend.service;
 
+import com.bookstore.backend.cache.CacheNames;
+import com.bookstore.backend.cache.DataCacheRegistry;
+import com.bookstore.backend.cache.ListCache;
 import com.bookstore.backend.dto.AuthorDTO;
 import com.bookstore.backend.dto.BookDTO;
 import com.bookstore.backend.dto.BookDetailDTO;
 import com.bookstore.backend.dto.CategoryDTO;
 import com.bookstore.backend.dto.ImageBookDTO;
 import com.bookstore.backend.dto.PublisherDTO;
+import com.bookstore.backend.dto.search.AdvancedSearchRequest;
+import com.bookstore.backend.dto.search.SearchResponse;
 import com.bookstore.backend.entities.Book;
 import com.bookstore.backend.entities.Category;
 import com.bookstore.backend.entities.ImageBook;
@@ -13,16 +18,21 @@ import com.bookstore.backend.repository.BookRepository;
 import com.bookstore.backend.repository.CartItemRepository;
 import com.bookstore.backend.repository.CategoryRepository;
 import com.bookstore.backend.repository.ImageBookRepository;
+import com.bookstore.backend.repository.ImportReceiptDetailRepository;
 import com.bookstore.backend.repository.OrderDetailRepository;
+import com.bookstore.backend.utils.AdvancedFilter;
 import com.bookstore.backend.utils.SlugUtil;
 import jakarta.persistence.EntityNotFoundException;
 import java.io.File;
 import java.io.IOException;
+import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -43,18 +53,92 @@ public class BookService {
   private final OrderDetailRepository orderDetailRepository;
   private final CartItemRepository cartItemRepository;
   private final CategoryRepository categoryRepository;
+  private final ImportReceiptDetailRepository importReceiptDetailRepository;
+  private final DataCacheRegistry cacheRegistry;
+
+  // Danh sách sách trên RAM (phiên 15 phút) dùng cho trang quản trị & tìm kiếm nâng cao
+  private final ListCache<BookDTO> bookCache;
+  private final AdvancedFilter<BookDTO> bookFilter = buildBookFilter();
 
   public BookService(
       BookRepository bookRepository,
       ImageBookRepository imageBookRepository,
       OrderDetailRepository orderDetailRepository,
       CartItemRepository cartItemRepository,
-      CategoryRepository categoryRepository) {
+      CategoryRepository categoryRepository,
+      ImportReceiptDetailRepository importReceiptDetailRepository,
+      DataCacheRegistry cacheRegistry) {
     this.bookRepository = bookRepository;
     this.imageBookRepository = imageBookRepository;
     this.orderDetailRepository = orderDetailRepository;
     this.cartItemRepository = cartItemRepository;
     this.categoryRepository = categoryRepository;
+    this.importReceiptDetailRepository = importReceiptDetailRepository;
+    this.cacheRegistry = cacheRegistry;
+    this.bookCache = cacheRegistry.register(CacheNames.BOOKS, this::loadBooksFromDatabase);
+  }
+
+  // ===================================================== cache & tìm kiếm (admin)
+
+  private List<BookDTO> loadBooksFromDatabase() {
+    return bookRepository.findAll(Sort.by("createdAt").descending()).stream()
+        .map(this::convertToDTO)
+        .collect(Collectors.toList());
+  }
+
+  public List<BookDTO> getCachedBooks() {
+    return bookCache.get();
+  }
+
+  private void invalidateBooks() {
+    cacheRegistry.invalidate(CacheNames.BOOKS);
+  }
+
+  private static AdvancedFilter<BookDTO> buildBookFilter() {
+    return new AdvancedFilter<BookDTO>()
+        .text("title", BookDTO::getTitle)
+        .text("categoryId", b -> b.getCategory() != null ? b.getCategory().getId() : null)
+        .text("authorId", b -> b.getAuthor() != null ? b.getAuthor().getId() : null)
+        .text("publisherId", b -> b.getPublisher() != null ? b.getPublisher().getId() : null)
+        .text("category", b -> b.getCategory() != null ? b.getCategory().getName() : null)
+        .text("author", b -> b.getAuthor() != null ? b.getAuthor().getFullname() : null)
+        .text("publisher", b -> b.getPublisher() != null ? b.getPublisher().getName() : null)
+        .number("price", BookDTO::getPrice)
+        .number("discount", BookDTO::getDiscount)
+        .number("finalPrice", b -> b.getPrice() - b.getDiscount())
+        .number("stock", BookDTO::getStock)
+        .number("status", BookDTO::getStatus)
+        .number("numberOfPages", BookDTO::getNumberOfPages)
+        .number("totalSold", BookDTO::getTotalSold)
+        .date("publicationDate", BookDTO::getPublicationDate)
+        .date("createdAt", BookDTO::getCreatedAt)
+        .keyword(
+            BookDTO::getTitle,
+            b -> b.getAuthor() != null ? b.getAuthor().getFullname() : null,
+            b -> b.getPublisher() != null ? b.getPublisher().getName() : null,
+            b -> b.getCategory() != null ? b.getCategory().getName() : null);
+  }
+
+  /** Tìm kiếm nâng cao trên danh sách sách trong RAM. */
+  public SearchResponse<BookDTO> searchBooks(AdvancedSearchRequest request) {
+    return bookFilter.search(
+        getCachedBooks(),
+        request,
+        "createdAt",
+        books -> {
+          Map<String, Object> summary = new LinkedHashMap<>();
+          summary.put("count", books.size());
+          summary.put("totalStock", books.stream().mapToLong(BookDTO::getStock).sum());
+          summary.put("totalSold", books.stream().mapToLong(BookDTO::getTotalSold).sum());
+          summary.put(
+              "stockValue", books.stream().mapToDouble(b -> b.getStock() * b.getPrice()).sum());
+          return summary;
+        },
+        bookCache.getLoadedAt());
+  }
+
+  public Instant getBooksCachedAt() {
+    return bookCache.getLoadedAt();
   }
 
   private BookDTO convertToDTO(Book book) {
@@ -68,6 +152,10 @@ public class BookService {
     dto.setSlug(book.getSlug());
     dto.setStock(book.getStock());
     dto.setStatus(book.getStatus());
+    dto.setNumberOfPages(book.getNumberOfPages() != null ? book.getNumberOfPages() : 0);
+    dto.setPublicationDate(
+        book.getPublicationDate() != null ? book.getPublicationDate().toString() : null);
+    dto.setCreatedAt(book.getCreatedAt() != null ? book.getCreatedAt().format(formatter) : null);
 
     if (book.getAuthor() != null) {
       dto.setAuthor(
@@ -538,6 +626,7 @@ public class BookService {
       }
     }
 
+    invalidateBooks();
     return savedBook;
   }
 
@@ -666,6 +755,7 @@ public class BookService {
       }
     }
 
+    invalidateBooks();
     return updatedBook;
   }
 
@@ -682,7 +772,9 @@ public class BookService {
                 }
               }
               book.setStatus(status);
-              return bookRepository.save(book);
+              Book saved = bookRepository.save(book);
+              invalidateBooks();
+              return saved;
             })
         .orElseThrow(() -> new EntityNotFoundException("Sách không tìm thấy"));
   }
@@ -703,6 +795,10 @@ public class BookService {
           "Sách này không thể bị xóa vì đang có trong giỏ hàng của người dùng");
     }
 
+    if (importReceiptDetailRepository.existsByBook(book)) {
+      throw new IllegalStateException("Sách này không thể bị xóa vì đã có trong phiếu nhập hàng");
+    }
+
     List<ImageBook> images = imageBookRepository.findByBook(book);
     imageBookRepository.deleteAll(images);
 
@@ -715,6 +811,7 @@ public class BookService {
     }
 
     bookRepository.deleteById(id);
+    invalidateBooks();
   }
 
   // image book
@@ -771,6 +868,7 @@ public class BookService {
         throw new RuntimeException("Lưu hình " + file.getOriginalFilename() + " thất bại: ", e);
       }
     }
+    invalidateBooks();
   }
 
   // xóa hình của sách
@@ -787,5 +885,6 @@ public class BookService {
     }
 
     imageBookRepository.delete(image);
+    invalidateBooks();
   }
 }

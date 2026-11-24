@@ -1,5 +1,7 @@
 package com.bookstore.backend.service;
 
+import com.bookstore.backend.cache.CacheNames;
+import com.bookstore.backend.cache.DataCacheRegistry;
 import com.bookstore.backend.entities.Author;
 import com.bookstore.backend.repository.AuthorRepository;
 import com.bookstore.backend.repository.BookRepository;
@@ -18,9 +20,15 @@ public class AuthorService {
   private final AuthorRepository authorRepository;
   private final BookRepository bookRepository;
 
-  public AuthorService(AuthorRepository authorRepository, BookRepository bookRepository) {
+  private final DataCacheRegistry cacheRegistry;
+
+  public AuthorService(
+      AuthorRepository authorRepository,
+      BookRepository bookRepository,
+      DataCacheRegistry cacheRegistry) {
     this.authorRepository = authorRepository;
     this.bookRepository = bookRepository;
+    this.cacheRegistry = cacheRegistry;
   }
 
   // lấy tất cả các authors
@@ -72,7 +80,9 @@ public class AuthorService {
               existingAuthor.setFullname(author.getFullname());
               existingAuthor.setSlug(author.getSlug());
 
-              return authorRepository.save(existingAuthor);
+              Author saved = authorRepository.save(existingAuthor);
+              cacheRegistry.invalidate(CacheNames.BOOKS);
+              return saved;
             })
         .orElse(null);
   }

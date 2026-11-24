@@ -17,4 +17,7 @@ public class OrderDetailDTO {
   private Integer quantity; // số lượng mua
   private Double price; // giá book tại thời điểm đặt đơn
   private Double discount; // giá giảm tại thời điểm đặt đơn
+  private Double subtotal; // tiền trước giảm = quantity * price
+  private Double discountAmount; // tiền giảm = quantity * discount
+  private Double lineTotal; // thành tiền = subtotal - discountAmount
 }

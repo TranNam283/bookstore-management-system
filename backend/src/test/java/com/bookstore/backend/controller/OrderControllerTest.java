@@ -9,6 +9,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.bookstore.backend.dto.OrderDTO;
 import com.bookstore.backend.service.OrderService;
+import com.bookstore.backend.service.StatisticsService;
+import com.bookstore.backend.utils.CurrentUserResolver;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -34,6 +36,10 @@ class OrderControllerTest {
   @Autowired private ObjectMapper objectMapper;
 
   @MockBean private OrderService orderService;
+
+  @MockBean private StatisticsService statisticsService;
+
+  @MockBean private CurrentUserResolver currentUserResolver;
 
   private OrderDTO orderDTO;
 
@@ -102,12 +108,61 @@ class OrderControllerTest {
 
     orderDTO.setStatus(3);
 
-    Mockito.when(orderService.updateOrderStatus("o1", 3)).thenReturn(orderDTO);
+    Mockito.when(currentUserResolver.resolveUserId(Mockito.any())).thenReturn(null);
+    Mockito.when(orderService.updateOrderStatus("o1", 3, null)).thenReturn(orderDTO);
 
     mockMvc
         .perform(put("/api/order/{id}", "o1").with(csrf()).param("status", "3"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status").value(3));
+  }
+
+  // nhân viên xác nhận đơn: id nhân viên lấy từ token
+  @Test
+  @WithMockUser
+  void updateOrderStatus_shouldPassStaffIdFromToken() throws Exception {
+    orderDTO.setStatus(1);
+    orderDTO.setStaffId("staff1");
+
+    Mockito.when(currentUserResolver.resolveUserId("Bearer token")).thenReturn("staff1");
+    Mockito.when(orderService.updateOrderStatus("o1", 1, "staff1")).thenReturn(orderDTO);
+
+    mockMvc
+        .perform(
+            put("/api/order/{id}", "o1")
+                .with(csrf())
+                .header("Authorization", "Bearer token")
+                .param("status", "1"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.staffId").value("staff1"));
+  }
+
+  // tìm kiếm nâng cao
+  @Test
+  @WithMockUser
+  void searchOrders_shouldReturnSearchResponse() throws Exception {
+    Mockito.when(orderService.searchOrders(Mockito.any()))
+        .thenReturn(
+            com.bookstore.backend.dto.search.SearchResponse.<OrderDTO>builder()
+                .items(List.of(orderDTO))
+                .total(1)
+                .totalPages(1)
+                .page(1)
+                .limit(20)
+                .summary(Map.of("total", 150000d))
+                .build());
+
+    mockMvc
+        .perform(
+            post("/api/order/search")
+                .with(csrf())
+                .contentType("application/json")
+                .content(
+                    "{\"groups\":[{\"logic\":\"AND\",\"conditions\":"
+                        + "[{\"field\":\"total\",\"operator\":\">=\",\"value\":\"100000\"}]}]}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items[0].orderCode").value("ORD001"))
+        .andExpect(jsonPath("$.summary.total").value(150000d));
   }
 
   // tạo đơn hàng
@@ -158,13 +213,17 @@ class OrderControllerTest {
   @WithMockUser
   void getOrderStats_shouldReturnStats() throws Exception {
 
-    Mockito.when(orderService.getTotalRevenue()).thenReturn(1000000d);
-
-    Mockito.when(orderService.getTodayRevenue()).thenReturn(250000d);
-
-    Mockito.when(orderService.getTotalSoldQuantity()).thenReturn(200L);
-
-    Mockito.when(orderService.getTodaySoldQuantity()).thenReturn(50L);
+    Mockito.when(statisticsService.getOverview())
+        .thenReturn(
+            Map.of(
+                "totalRevenue",
+                1000000d,
+                "todayRevenue",
+                250000d,
+                "totalSoldQuantity",
+                200L,
+                "todaySoldQuantity",
+                50L));
 
     mockMvc
         .perform(get("/api/order/statistics"))

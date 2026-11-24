@@ -2,6 +2,8 @@ package com.bookstore.backend.controller;
 
 import com.bookstore.backend.dto.BookDTO;
 import com.bookstore.backend.dto.BookDetailDTO;
+import com.bookstore.backend.dto.search.AdvancedSearchRequest;
+import com.bookstore.backend.dto.search.SearchResponse;
 import com.bookstore.backend.entities.Book;
 import com.bookstore.backend.service.BookService;
 import java.util.List;
@@ -21,6 +23,13 @@ public class BookController {
 
   public BookController(BookService bookService) {
     this.bookService = bookService;
+  }
+
+  // tìm kiếm nâng cao cho trang quản trị (danh sách sách trên RAM)
+  @PostMapping("/admin/search")
+  public ResponseEntity<SearchResponse<BookDTO>> searchBooks(
+      @RequestBody(required = false) AdvancedSearchRequest request) {
+    return ResponseEntity.ok(bookService.searchBooks(request));
   }
 
   @GetMapping

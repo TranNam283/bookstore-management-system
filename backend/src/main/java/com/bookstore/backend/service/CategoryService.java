@@ -1,5 +1,7 @@
 package com.bookstore.backend.service;
 
+import com.bookstore.backend.cache.CacheNames;
+import com.bookstore.backend.cache.DataCacheRegistry;
 import com.bookstore.backend.entities.Book;
 import com.bookstore.backend.entities.Category;
 import com.bookstore.backend.repository.BookRepository;
@@ -21,9 +23,15 @@ public class CategoryService {
   private final CategoryRepository categoryRepository;
   private final BookRepository bookRepository;
 
-  public CategoryService(CategoryRepository categoryRepository, BookRepository bookRepository) {
+  private final DataCacheRegistry cacheRegistry;
+
+  public CategoryService(
+      CategoryRepository categoryRepository,
+      BookRepository bookRepository,
+      DataCacheRegistry cacheRegistry) {
     this.categoryRepository = categoryRepository;
     this.bookRepository = bookRepository;
+    this.cacheRegistry = cacheRegistry;
   }
 
   // lấy tất cả categories
@@ -89,7 +97,9 @@ public class CategoryService {
                 bookRepository.saveAll(books);
               }
 
-              return categoryRepository.save(existingCategory);
+              Category saved = categoryRepository.save(existingCategory);
+              cacheRegistry.invalidate(CacheNames.BOOKS);
+              return saved;
             })
         .orElse(null);
   }
@@ -110,7 +120,9 @@ public class CategoryService {
                 bookRepository.saveAll(books);
               }
 
-              return categoryRepository.save(category);
+              Category saved = categoryRepository.save(category);
+              cacheRegistry.invalidate(CacheNames.BOOKS);
+              return saved;
             })
         .orElseThrow(() -> new EntityNotFoundException("Danh mục không tìm thấy"));
   }

@@ -1,5 +1,7 @@
 package com.bookstore.backend.service;
 
+import com.bookstore.backend.cache.CacheNames;
+import com.bookstore.backend.cache.DataCacheRegistry;
 import com.bookstore.backend.dto.AddressDTO;
 import com.bookstore.backend.entities.Address;
 import com.bookstore.backend.entities.User;
@@ -15,10 +17,20 @@ public class AddressService {
 
   private final AddressRepository addressRepository;
   private final UserRepository userRepository;
+  private final DataCacheRegistry cacheRegistry;
 
-  public AddressService(AddressRepository addressRepository, UserRepository userRepository) {
+  public AddressService(
+      AddressRepository addressRepository,
+      UserRepository userRepository,
+      DataCacheRegistry cacheRegistry) {
     this.addressRepository = addressRepository;
     this.userRepository = userRepository;
+    this.cacheRegistry = cacheRegistry;
+  }
+
+  // sổ địa chỉ thay đổi -> thành phố của khách hàng trong cache thay đổi
+  private void invalidateCustomers() {
+    cacheRegistry.invalidate(CacheNames.CUSTOMERS);
   }
 
   // lấy các address của customer dựa vào id
@@ -53,7 +65,9 @@ public class AddressService {
             .user(user)
             .build();
 
-    return addressRepository.save(address);
+    Address saved = addressRepository.save(address);
+    invalidateCustomers();
+    return saved;
   }
 
   // cập nhật address
@@ -81,7 +95,9 @@ public class AddressService {
                 existingAddress.setUser(user);
               }
 
-              return addressRepository.save(existingAddress);
+              Address saved = addressRepository.save(existingAddress);
+              invalidateCustomers();
+              return saved;
             })
         .orElseThrow(() -> new EntityNotFoundException("Địa chỉ không tìm thấy"));
   }
@@ -93,5 +109,6 @@ public class AddressService {
     }
 
     addressRepository.deleteById(id);
+    invalidateCustomers();
   }
 }

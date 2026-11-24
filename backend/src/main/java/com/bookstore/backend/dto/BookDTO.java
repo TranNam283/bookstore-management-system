@@ -22,4 +22,6 @@ public class BookDTO {
   private CategoryDTO category;
   private long totalSold;
   private List<ImageBookDTO> images;
+  private int numberOfPages;
+  private String publicationDate;
 }

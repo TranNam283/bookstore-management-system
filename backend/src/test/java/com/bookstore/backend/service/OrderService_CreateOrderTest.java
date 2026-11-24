@@ -8,6 +8,7 @@ import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.bookstore.backend.cache.DataCacheRegistry;
 import com.bookstore.backend.dto.OrderDTO;
 import com.bookstore.backend.dto.OrderDetailDTO;
 import com.bookstore.backend.entities.Book;
@@ -30,6 +31,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -43,6 +45,8 @@ class OrderService_CreateOrderTest {
   @Mock private CartRepository cartRepository;
   @Mock private PaymentRepository paymentRepository;
   @Mock private MomoService momoService;
+
+  @Spy private DataCacheRegistry cacheRegistry = new DataCacheRegistry();
 
   @InjectMocks private OrderService orderService;
 

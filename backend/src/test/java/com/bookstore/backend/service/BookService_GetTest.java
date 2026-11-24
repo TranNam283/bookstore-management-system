@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.when;
 
+import com.bookstore.backend.cache.DataCacheRegistry;
 import com.bookstore.backend.dto.BookDTO;
 import com.bookstore.backend.dto.BookDetailDTO;
 import com.bookstore.backend.entities.Author;
@@ -19,6 +20,7 @@ import com.bookstore.backend.repository.BookRepository;
 import com.bookstore.backend.repository.CartItemRepository;
 import com.bookstore.backend.repository.CategoryRepository;
 import com.bookstore.backend.repository.ImageBookRepository;
+import com.bookstore.backend.repository.ImportReceiptDetailRepository;
 import com.bookstore.backend.repository.OrderDetailRepository;
 import jakarta.persistence.EntityNotFoundException;
 import java.time.LocalDate;
@@ -30,6 +32,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -45,6 +48,10 @@ class BookService_GetTest {
   @Mock private OrderDetailRepository orderDetailRepository;
   @Mock private CartItemRepository cartItemRepository;
   @Mock private CategoryRepository categoryRepository;
+
+  @Mock private ImportReceiptDetailRepository importReceiptDetailRepository;
+
+  @Spy private DataCacheRegistry cacheRegistry = new DataCacheRegistry();
 
   @InjectMocks private BookService bookService;
 
