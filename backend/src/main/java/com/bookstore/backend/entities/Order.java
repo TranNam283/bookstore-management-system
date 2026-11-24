@@ -57,7 +57,24 @@ public class Order {
   private Integer status;
 
   @Column(nullable = false)
-  private Double total;
+  private Double total; // tổng thanh toán = subtotal - discountTotal
+
+  // Tổng tiền trước giảm giá
+  @Builder.Default
+  @Column(nullable = false)
+  private Double subtotal = 0.0;
+
+  // Tổng tiền giảm giá
+  @Builder.Default
+  @Column(nullable = false)
+  private Double discountTotal = 0.0;
+
+  // Nhân viên xác nhận đơn (dùng cho thống kê theo nhân viên)
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "staffId")
+  private User staff;
+
+  private LocalDateTime confirmedAt;
 
   @Builder.Default
   @Column(nullable = false)
@@ -72,4 +89,20 @@ public class Order {
 
   @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
   private List<Payment> payments;
+
+  /** Tính lại các tổng tiền của hóa đơn từ các dòng chi tiết. */
+  public void recalculateTotals() {
+    double sub = 0;
+    double disc = 0;
+    if (items != null) {
+      for (OrderDetail item : items) {
+        item.calculateAmounts();
+        sub += item.getSubtotal();
+        disc += item.getDiscountAmount();
+      }
+    }
+    this.subtotal = sub;
+    this.discountTotal = disc;
+    this.total = sub - disc;
+  }
 }

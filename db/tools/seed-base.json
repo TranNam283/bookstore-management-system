@@ -1,0 +1,243 @@
+{
+ "books": [
+  {
+   "id": "0df5b62d-1593-43b6-a835-3f1864156e16",
+   "price": 175000.0,
+   "stock": 15,
+   "title": "Pele Cuộc Đời Và Thời Đại",
+   "discount": 25000.0,
+   "publisherId": "348624ac-119c-48c9-9e49-5e4605ca7ac7"
+  },
+  {
+   "id": "1fe5766e-718c-4429-97e8-b1c4d79f1d53",
+   "price": 162000.0,
+   "stock": 15,
+   "title": "Quá Trình Hình Thành Đế Chế Microsoft",
+   "discount": 25000.0,
+   "publisherId": "5a5b227a-9a43-4c4f-a7ae-5b931992ac87"
+  },
+  {
+   "id": "28bf23d3-aa3f-4ed2-9947-8bd9e80be6a8",
+   "price": 140000.0,
+   "stock": 15,
+   "title": "Putin - Logic Của Quyền Lực",
+   "discount": 0.0,
+   "publisherId": "9ca99f2a-c18a-4370-87de-55ddb348cefc"
+  },
+  {
+   "id": "4204a2c1-e291-4ab0-be91-cff3ad18b987",
+   "price": 200000.0,
+   "stock": 20,
+   "title": "The Manager",
+   "discount": 0.0,
+   "publisherId": "25cfd702-fbc5-470e-89f7-b789166cc75a"
+  },
+  {
+   "id": "45cfd7f2-815e-4e7d-9248-fd6860d6dc64",
+   "price": 80000.0,
+   "stock": 5,
+   "title": "Nửa Lo Âu - Nửa Trưởng Thành",
+   "discount": 0.0,
+   "publisherId": "348624ac-119c-48c9-9e49-5e4605ca7ac7"
+  },
+  {
+   "id": "475975dc-f6df-4eb3-905b-b3d942e63898",
+   "price": 150000.0,
+   "stock": 10,
+   "title": "Anh Đứng Giữa Ngàn Hoa Hạ Rực Rỡ",
+   "discount": 0.0,
+   "publisherId": "fa81e3eb-624a-472e-8334-2edb6d98388d"
+  },
+  {
+   "id": "54ed4ff9-0e31-4dc6-9e4f-df4df60812a0",
+   "price": 185000.0,
+   "stock": 15,
+   "title": "Mưa Đỏ",
+   "discount": 0.0,
+   "publisherId": "096a7376-84cb-46f2-9a17-6823684057d5"
+  },
+  {
+   "id": "658858f3-3265-4009-a6c1-d11c06215d8d",
+   "price": 165500.0,
+   "stock": 15,
+   "title": "Hồi Ký Alex Ferguson (Tái Bản 2024)",
+   "discount": 0.0,
+   "publisherId": "348624ac-119c-48c9-9e49-5e4605ca7ac7"
+  },
+  {
+   "id": "83f2d77c-15b6-49c1-984b-5e672e8c40f5",
+   "price": 60000.0,
+   "stock": 28,
+   "title": "Lịch Sử Việt Nam Bằng Tranh - Hai Bà Trưng ",
+   "discount": 0.0,
+   "publisherId": "348624ac-119c-48c9-9e49-5e4605ca7ac7"
+  },
+  {
+   "id": "878839e5-198d-48eb-875a-3afdc0131062",
+   "price": 115000.0,
+   "stock": 14,
+   "title": "Tập Nhìn Đời Bằng Đôi Mắt Sáng Trong",
+   "discount": 0.0,
+   "publisherId": "b83abea0-3d3c-4309-a60a-35be9ee92abe"
+  },
+  {
+   "id": "8d8fd0fe-7808-430f-82e5-bf0072c9adfd",
+   "price": 65000.0,
+   "stock": 25,
+   "title": "Hồi Kí Về Bác Hồ - Gần Bên Bác Và Học Ở Bác",
+   "discount": 0.0,
+   "publisherId": "8028ea2e-e127-40a7-a915-b94eb698862b"
+  },
+  {
+   "id": "a2a08154-f627-4d5b-9a83-71e61ef66b83",
+   "price": 210000.0,
+   "stock": 15,
+   "title": "Tommy Kể Chuyện - Vượt Khủng Hoảng",
+   "discount": 0.0,
+   "publisherId": "b83abea0-3d3c-4309-a60a-35be9ee92abe"
+  },
+  {
+   "id": "aa4a3c6e-3fc2-48c4-89d0-3a2351f8f66b",
+   "price": 87000.0,
+   "stock": 12,
+   "title": "Sau Khi Tôi Chết, Anh Ấy Không Cưới Thêm Ai Nữa",
+   "discount": 0.0,
+   "publisherId": "b264d51f-a84a-4745-a344-2eac6643581a"
+  },
+  {
+   "id": "b109d7f1-7462-4ae0-a4b1-6ca07ae4222a",
+   "price": 45000.0,
+   "stock": 4,
+   "title": "Bác Hồ Viết Di Chúc Và Di Chúc Của Bác Hồ",
+   "discount": 5000.0,
+   "publisherId": "8028ea2e-e127-40a7-a915-b94eb698862b"
+  },
+  {
+   "id": "bec5b538-0bc2-4ae3-aa65-deb202e75e9a",
+   "price": 97000.0,
+   "stock": 15,
+   "title": "Tâm Lý Học Cho Lứa Tuổi 30",
+   "discount": 0.0,
+   "publisherId": "348624ac-119c-48c9-9e49-5e4605ca7ac7"
+  },
+  {
+   "id": "c1dc457a-2ecf-43a3-87cc-96a0fc8095c9",
+   "price": 72000.0,
+   "stock": 1,
+   "title": "Mẹ Làm Gì Có Ước Mơ",
+   "discount": 0.0,
+   "publisherId": "fdf8f890-fcd5-4c18-a0a0-b32190e4ae19"
+  },
+  {
+   "id": "c51513b9-8a12-4464-8197-d72702662c1e",
+   "price": 160000.0,
+   "stock": 20,
+   "title": "Quái Vật Ickabog",
+   "discount": 25000.0,
+   "publisherId": "348624ac-119c-48c9-9e49-5e4605ca7ac7"
+  },
+  {
+   "id": "ca6c2151-b0e3-428f-a5a3-88d049ea72e1",
+   "price": 145000.0,
+   "stock": 12,
+   "title": "Hồi Ký Thảm Hoạ Everest ",
+   "discount": 0.0,
+   "publisherId": "c0c19c8f-7dcd-46ba-babc-ac1669107dcb"
+  },
+  {
+   "id": "cda91313-33cb-40ab-ab68-7c019b5e35b8",
+   "price": 240000.0,
+   "stock": 15,
+   "title": "Tự Truyện Steven Gerrard - Người Đội Trưởng Vĩ Đại",
+   "discount": 0.0,
+   "publisherId": "558747b1-5840-4b4e-af4b-203cd6f0ae63"
+  },
+  {
+   "id": "f203de2c-c979-49b6-a048-f3ad2c56bb31",
+   "price": 180000.0,
+   "stock": 15,
+   "title": "Donald Trump Dưới Góc Nhìn Của Tâm Lý Học",
+   "discount": 0.0,
+   "publisherId": "6ed381fa-c544-4ef5-92ae-2e20199c3c7b"
+  }
+ ],
+ "users": [
+  {
+   "id": "083d38f9-f906-4290-a9da-fe7a499e2901",
+   "role": 3,
+   "email": "hieunguyen456@gmail.com",
+   "fullname": "hieu nguyen",
+   "createdAt": "2025-10-20 16:56:13"
+  },
+  {
+   "id": "268fb390-b233-4fb4-8d39-d1785eb4e8c8",
+   "role": 3,
+   "email": "user456@gmail.com",
+   "fullname": "user1",
+   "createdAt": "2025-10-20 06:31:05"
+  },
+  {
+   "id": "4ae502cf-de12-4b08-a574-b94ec59855b2",
+   "role": 0,
+   "email": "admin456@gmail.com",
+   "fullname": "admin",
+   "createdAt": "2025-10-20 06:38:18"
+  },
+  {
+   "id": "69e55100-8677-406d-b56d-cbe23ca623ac",
+   "role": 1,
+   "email": "admin456789@gmail.com",
+   "fullname": "admin1",
+   "createdAt": "2025-10-20 17:52:51"
+  },
+  {
+   "id": "8e6f14cf-03c5-49b9-a7a8-d3e5eefd15e7",
+   "role": 1,
+   "email": "admin@gmail.com",
+   "fullname": "phonk",
+   "createdAt": "2026-11-18 02:59:58"
+  },
+  {
+   "id": "b1b879e5-8d4d-48e6-a735-08df20510d47",
+   "role": 3,
+   "email": "quanglam@gmail.com",
+   "fullname": "quanglam",
+   "createdAt": "2025-10-20 06:38:35"
+  }
+ ],
+ "addresses": [
+  {
+   "city": "Đà Nẵng",
+   "ward": "Xã Tam Mỹ",
+   "phone": "0967996016",
+   "userId": "b1b879e5-8d4d-48e6-a735-08df20510d47",
+   "fullname": "test",
+   "speaddress": "751/28FHồng Bàng Phường 6 Quận 6"
+  },
+  {
+   "city": "Quảng Trị",
+   "ward": "Xã Tuyên Bình",
+   "phone": "0967996016",
+   "userId": "083d38f9-f906-4290-a9da-fe7a499e2901",
+   "fullname": "test",
+   "speaddress": "751/28F Hồng Bàng"
+  },
+  {
+   "city": "Hà Tĩnh",
+   "ward": "Phường Thành Sen",
+   "phone": "0967996016",
+   "userId": "268fb390-b233-4fb4-8d39-d1785eb4e8c8",
+   "fullname": "test",
+   "speaddress": "751/28FHồng Bàng"
+  }
+ ],
+ "orderCodes": [
+  "B56TPL",
+  "ININ0X",
+  "M1OKHW",
+  "MHSHWO",
+  "Q44ZT6",
+  "QRXBZB",
+  "WBKVP3"
+ ]
+}

@@ -66,7 +66,9 @@ class BookControllerTest {
             publisher,
             category,
             150,
-            List.of(image));
+            List.of(image),
+            100,
+            "2024-01-01");
 
     bookDetailDTO =
         new BookDetailDTO(

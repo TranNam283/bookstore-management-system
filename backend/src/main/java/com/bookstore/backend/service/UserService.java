@@ -1,5 +1,7 @@
 package com.bookstore.backend.service;
 
+import com.bookstore.backend.cache.CacheNames;
+import com.bookstore.backend.cache.DataCacheRegistry;
 import com.bookstore.backend.dto.UserDTO;
 import com.bookstore.backend.entities.User;
 import com.bookstore.backend.repository.AddressRepository;
@@ -26,18 +28,26 @@ public class UserService {
   private final OrderRepository orderRepository;
   private final CartRepository cartRepository;
   private final PasswordEncoder passwordEncoder;
+  private final DataCacheRegistry cacheRegistry;
 
   public UserService(
       UserRepository userRepository,
       AddressRepository addressRepository,
       OrderRepository orderRepository,
       CartRepository cartRepository,
-      PasswordEncoder passwordEncoder) {
+      PasswordEncoder passwordEncoder,
+      DataCacheRegistry cacheRegistry) {
     this.userRepository = userRepository;
     this.addressRepository = addressRepository;
     this.orderRepository = orderRepository;
     this.cartRepository = cartRepository;
     this.passwordEncoder = passwordEncoder;
+    this.cacheRegistry = cacheRegistry;
+  }
+
+  // thông tin người dùng thay đổi -> danh sách khách hàng, tên nhân viên trên đơn/phiếu nhập
+  private void invalidateCaches() {
+    cacheRegistry.invalidate(CacheNames.CUSTOMERS, CacheNames.ORDERS, CacheNames.IMPORT_RECEIPTS);
   }
 
   // lấy tất cả users có role = 3 là customer
@@ -149,6 +159,7 @@ public class UserService {
             .build();
 
     User saved = userRepository.save(user);
+    invalidateCaches();
 
     dto.setId(saved.getId());
     dto.setPassword(null);
@@ -191,6 +202,7 @@ public class UserService {
                 user.setStatus(userDTO.getStatus());
               }
               userRepository.save(user);
+              invalidateCaches();
 
               userDTO.setId(user.getId());
               userDTO.setPassword(null);
@@ -206,7 +218,9 @@ public class UserService {
         .map(
             user -> {
               user.setStatus(status);
-              return userRepository.save(user);
+              User saved = userRepository.save(user);
+              invalidateCaches();
+              return saved;
             })
         .orElseThrow(() -> new EntityNotFoundException("Người dùng không tìm thấy"));
   }
@@ -222,9 +236,15 @@ public class UserService {
       throw new IllegalStateException("Người dùng này không thể xóa vì đã mua hàng");
     }
 
+    if (orderRepository.existsByStaff(user)) {
+      throw new IllegalStateException(
+          "Nhân viên này đã xác nhận đơn hàng nên không thể xóa, hãy khóa tài khoản");
+    }
+
     // xóa tất cả address và cart trước
     addressRepository.deleteByUserId(user.getId());
     cartRepository.deleteByUserId(user.getId());
     userRepository.deleteById(id);
+    invalidateCaches();
   }
 }

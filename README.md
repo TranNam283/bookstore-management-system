@@ -16,6 +16,10 @@ git clone https://github.com/lamquang4/fullstack-vitejs-books.git
 docker compose up --build
 ```
 
+**3. Chạy local không dùng Docker, quản lý database, câu SQL demo**
+
+Xem [docs/HUONG_DAN_LOCAL_VA_DATABASE.md](docs/HUONG_DAN_LOCAL_VA_DATABASE.md) và [db/demo_queries.sql](db/demo_queries.sql).
+
 ## Mục lục
 
 [1. Giới thiệu phần mềm](#1-giới-thiệu-phần-mềm)

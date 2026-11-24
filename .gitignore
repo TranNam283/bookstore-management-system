@@ -1,0 +1,11 @@
+# Bản sao lưu database (có dữ liệu thật, chỉ giữ ở máy cá nhân)
+db/backup/
+
+# Cấu hình riêng từng máy (mật khẩu, cổng)
+.env.local
+*.local
+
+# Log & file hệ điều hành
+*.log
+.DS_Store
+Thumbs.db

@@ -1,5 +1,7 @@
 package com.bookstore.backend.service;
 
+import com.bookstore.backend.cache.CacheNames;
+import com.bookstore.backend.cache.DataCacheRegistry;
 import com.bookstore.backend.dto.MomoRequest;
 import com.bookstore.backend.dto.MomoResponse;
 import com.bookstore.backend.dto.OrderDTO;
@@ -52,17 +54,20 @@ public class MomoService {
   private final CartRepository cartRepository;
   private final BookRepository bookRepository;
   private final PaymentRepository paymentRepository;
+  private final DataCacheRegistry cacheRegistry;
   private final RestTemplate restTemplate = new RestTemplate();
 
   public MomoService(
       OrderRepository orderRepository,
       CartRepository cartRepository,
       BookRepository bookRepository,
-      PaymentRepository paymentRepository) {
+      PaymentRepository paymentRepository,
+      DataCacheRegistry cacheRegistry) {
     this.orderRepository = orderRepository;
     this.cartRepository = cartRepository;
     this.bookRepository = bookRepository;
     this.paymentRepository = paymentRepository;
+    this.cacheRegistry = cacheRegistry;
   }
 
   public MomoResponse createPayment(OrderDTO orderDTO) throws Exception {
@@ -148,6 +153,7 @@ public class MomoService {
       }
       order.setStatus(0);
       orderRepository.save(order);
+      cacheRegistry.invalidate(CacheNames.ORDERS, CacheNames.BOOKS);
 
       paymentRepository.save(
           Payment.builder()
@@ -172,6 +178,7 @@ public class MomoService {
 
       // Xóa order
       orderRepository.delete(order);
+      cacheRegistry.invalidate(CacheNames.ORDERS);
 
       return false;
     }

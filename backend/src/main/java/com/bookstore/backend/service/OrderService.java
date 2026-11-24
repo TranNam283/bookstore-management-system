@@ -1,7 +1,14 @@
 package com.bookstore.backend.service;
 
+import com.bookstore.backend.cache.CacheNames;
+import com.bookstore.backend.cache.DataCacheRegistry;
+import com.bookstore.backend.cache.ListCache;
 import com.bookstore.backend.dto.OrderDTO;
 import com.bookstore.backend.dto.OrderDetailDTO;
+import com.bookstore.backend.dto.search.AdvancedSearchRequest;
+import com.bookstore.backend.dto.search.SearchCondition;
+import com.bookstore.backend.dto.search.SearchGroup;
+import com.bookstore.backend.dto.search.SearchResponse;
 import com.bookstore.backend.entities.Book;
 import com.bookstore.backend.entities.Cart;
 import com.bookstore.backend.entities.Order;
@@ -13,19 +20,25 @@ import com.bookstore.backend.repository.CartRepository;
 import com.bookstore.backend.repository.OrderRepository;
 import com.bookstore.backend.repository.PaymentRepository;
 import com.bookstore.backend.repository.UserRepository;
+import com.bookstore.backend.utils.AdvancedFilter;
 import com.bookstore.backend.utils.ValidationUtils;
 import jakarta.persistence.EntityNotFoundException;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -42,6 +55,11 @@ public class OrderService {
   private final CartRepository cartRepository;
   private final PaymentRepository paymentRepository;
   private final MomoService momoService;
+  private final DataCacheRegistry cacheRegistry;
+
+  // Danh sách đơn hàng trên RAM (phiên 15 phút) dùng cho tìm kiếm & thống kê
+  private final ListCache<OrderDTO> orderCache;
+  private final AdvancedFilter<OrderDTO> orderFilter = buildOrderFilter();
 
   public OrderService(
       OrderRepository orderRepository,
@@ -49,13 +67,16 @@ public class OrderService {
       BookRepository bookRepository,
       CartRepository cartRepository,
       PaymentRepository paymentRepository,
-      MomoService momoService) {
+      MomoService momoService,
+      DataCacheRegistry cacheRegistry) {
     this.orderRepository = orderRepository;
     this.userRepository = userRepository;
     this.bookRepository = bookRepository;
     this.cartRepository = cartRepository;
     this.paymentRepository = paymentRepository;
     this.momoService = momoService;
+    this.cacheRegistry = cacheRegistry;
+    this.orderCache = cacheRegistry.register(CacheNames.ORDERS, this::loadOrdersFromDatabase);
   }
 
   // tạo order code
@@ -89,6 +110,15 @@ public class OrderService {
     dto.setPrice(detail.getPrice());
     dto.setDiscount(detail.getDiscount());
 
+    int qty = detail.getQuantity() == null ? 0 : detail.getQuantity();
+    double price = detail.getPrice() == null ? 0 : detail.getPrice();
+    double discount = detail.getDiscount() == null ? 0 : detail.getDiscount();
+    dto.setSubtotal(detail.getSubtotal() != null ? detail.getSubtotal() : qty * price);
+    dto.setDiscountAmount(
+        detail.getDiscountAmount() != null ? detail.getDiscountAmount() : qty * discount);
+    dto.setLineTotal(
+        detail.getLineTotal() != null ? detail.getLineTotal() : qty * (price - discount));
+
     return dto;
   }
 
@@ -104,8 +134,16 @@ public class OrderService {
     dto.setPaymethod(order.getPaymethod());
     dto.setStatus(order.getStatus());
     dto.setTotal(order.getTotal());
+    dto.setSubtotal(order.getSubtotal());
+    dto.setDiscountTotal(order.getDiscountTotal());
     dto.setCreatedAt(order.getCreatedAt());
+    dto.setConfirmedAt(order.getConfirmedAt());
     dto.setAccountEmail(order.getUser() != null ? order.getUser().getEmail() : null);
+
+    if (order.getStaff() != null) {
+      dto.setStaffId(order.getStaff().getId());
+      dto.setStaffName(order.getStaff().getFullname());
+    }
 
     if (order.getItems() != null && !order.getItems().isEmpty()) {
       List<OrderDetailDTO> detailDTOs =
@@ -114,66 +152,152 @@ public class OrderService {
     } else {
       dto.setItems(Collections.emptyList());
     }
+    dto.setTotalQuantity(
+        dto.getItems().stream()
+            .mapToInt(item -> item.getQuantity() == null ? 0 : item.getQuantity())
+            .sum());
 
     return dto;
   }
 
-  // order cho admin
+  // ===================================================== cache & tìm kiếm (admin)
 
-  // lấy tất cả orders
-  public Page<OrderDTO> getAllOrders(
-      int page, int limit, String orderCode, Integer status, LocalDate start, LocalDate end) {
-    Pageable pageable = PageRequest.of(page - 1, limit, Sort.by("createdAt").descending());
-    Page<Order> orderPage;
-
-    LocalDateTime startDateTime = null;
-    LocalDateTime endDateTime = null;
-    if (start != null) startDateTime = start.atStartOfDay();
-    if (end != null) endDateTime = end.atTime(LocalTime.MAX);
-
-    if ((orderCode != null && !orderCode.isEmpty())
-        && status != null
-        && startDateTime != null
-        && endDateTime != null) {
-      orderPage =
-          orderRepository.findByOrderCodeContainingIgnoreCaseAndStatusAndCreatedAtBetween(
-              orderCode, status, startDateTime, endDateTime, pageable);
-    } else if ((orderCode != null && !orderCode.isEmpty())
-        && startDateTime != null
-        && endDateTime != null) {
-      orderPage =
-          orderRepository.findByOrderCodeContainingIgnoreCaseAndCreatedAtBetween(
-              orderCode, startDateTime, endDateTime, pageable);
-    } else if (status != null && startDateTime != null && endDateTime != null) {
-      orderPage =
-          orderRepository.findByStatusAndCreatedAtBetween(
-              status, startDateTime, endDateTime, pageable);
-    } else if (startDateTime != null && endDateTime != null) {
-      orderPage = orderRepository.findByCreatedAtBetween(startDateTime, endDateTime, pageable);
-    } else if ((orderCode != null && !orderCode.isEmpty()) && status != null) {
-      orderPage =
-          orderRepository.findByOrderCodeContainingIgnoreCaseAndStatus(orderCode, status, pageable);
-    } else if (orderCode != null && !orderCode.isEmpty()) {
-      orderPage = orderRepository.findByOrderCodeContainingIgnoreCase(orderCode, pageable);
-    } else if (status != null) {
-      orderPage = orderRepository.findByStatus(status, pageable);
-    } else {
-      orderPage = orderRepository.findAll(pageable);
-    }
-
-    return orderPage.map(this::convertToDTO);
+  private List<OrderDTO> loadOrdersFromDatabase() {
+    return orderRepository.findAll(Sort.by("createdAt").descending()).stream()
+        .map(this::convertToDTO)
+        .collect(Collectors.toList());
   }
 
-  // đếm số lượng order có status đó
-  public Map<Integer, Long> getOrderCountByStatus(List<Integer> statuses) {
-    List<Object[]> results = orderRepository.countOrdersByStatus(statuses);
-    Map<Integer, Long> map = new HashMap<>();
-    for (Object[] row : results) {
-      Integer status = (Integer) row[0];
-      Long total = (Long) row[1];
-      map.put(status, total);
-    }
+  /** Danh sách đơn hàng trên RAM, chỉ đọc lại database khi hết phiên hoặc có thay đổi. */
+  public List<OrderDTO> getCachedOrders() {
+    return orderCache.get();
+  }
 
+  public Instant getOrdersCachedAt() {
+    return orderCache.getLoadedAt();
+  }
+
+  private void invalidateCaches() {
+    // đơn hàng thay đổi -> tồn kho / số lượng bán của sách cũng thay đổi
+    cacheRegistry.invalidate(CacheNames.ORDERS, CacheNames.BOOKS);
+  }
+
+  private static AdvancedFilter<OrderDTO> buildOrderFilter() {
+    return new AdvancedFilter<OrderDTO>()
+        .text("orderCode", OrderDTO::getOrderCode)
+        .text("fullname", OrderDTO::getFullname)
+        .text("accountEmail", OrderDTO::getAccountEmail)
+        .text("phone", OrderDTO::getPhone)
+        .text("city", OrderDTO::getCity)
+        .text("paymethod", OrderDTO::getPaymethod)
+        .text("staffId", OrderDTO::getStaffId)
+        .text("staffName", OrderDTO::getStaffName)
+        .text(
+            "bookTitle",
+            order ->
+                order.getItems() == null
+                    ? List.of()
+                    : order.getItems().stream().map(OrderDetailDTO::getTitle).toList())
+        .number("status", OrderDTO::getStatus)
+        .number("total", OrderDTO::getTotal)
+        .number("subtotal", OrderDTO::getSubtotal)
+        .number("discountTotal", OrderDTO::getDiscountTotal)
+        .number("totalQuantity", OrderDTO::getTotalQuantity)
+        .date("createdAt", OrderDTO::getCreatedAt)
+        .date("confirmedAt", OrderDTO::getConfirmedAt)
+        .keyword(
+            OrderDTO::getOrderCode,
+            OrderDTO::getFullname,
+            OrderDTO::getAccountEmail,
+            OrderDTO::getPhone);
+  }
+
+  /** Tìm kiếm nâng cao trên danh sách RAM: (điều kiện AND/OR) + sắp xếp + phân trang. */
+  public SearchResponse<OrderDTO> searchOrders(AdvancedSearchRequest request) {
+    return orderFilter.search(
+        getCachedOrders(), request, "createdAt", OrderService::summarize, getOrdersCachedAt());
+  }
+
+  private static Map<String, Object> summarize(List<OrderDTO> orders) {
+    Map<String, Object> summary = new LinkedHashMap<>();
+    summary.put("count", orders.size());
+    summary.put("subtotal", orders.stream().mapToDouble(o -> nz(o.getSubtotal())).sum());
+    summary.put("discountTotal", orders.stream().mapToDouble(o -> nz(o.getDiscountTotal())).sum());
+    summary.put("total", orders.stream().mapToDouble(o -> nz(o.getTotal())).sum());
+    summary.put(
+        "totalQuantity",
+        orders.stream()
+            .mapToInt(o -> o.getTotalQuantity() == null ? 0 : o.getTotalQuantity())
+            .sum());
+    return summary;
+  }
+
+  private static double nz(Double value) {
+    return value == null ? 0 : value;
+  }
+
+  /** Giá trị gợi ý cho bộ lọc (thành phố, phương thức thanh toán, nhân viên). */
+  public Map<String, Object> getSearchOptions() {
+    List<OrderDTO> orders = getCachedOrders();
+    Map<String, String> staffs = new LinkedHashMap<>();
+    orders.stream()
+        .filter(o -> o.getStaffId() != null)
+        .forEach(o -> staffs.putIfAbsent(o.getStaffId(), o.getStaffName()));
+
+    Map<String, Object> options = new LinkedHashMap<>();
+    options.put(
+        "cities",
+        orders.stream()
+            .map(OrderDTO::getCity)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toCollection(TreeSet::new)));
+    options.put(
+        "paymethods",
+        orders.stream()
+            .map(OrderDTO::getPaymethod)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toCollection(TreeSet::new)));
+    options.put(
+        "staffs",
+        staffs.entrySet().stream()
+            .map(e -> Map.of("id", e.getKey(), "name", String.valueOf(e.getValue())))
+            .toList());
+    return options;
+  }
+
+  // order cho admin
+
+  // lấy tất cả orders (lọc đơn giản theo mã đơn, trạng thái, khoảng ngày) - dùng cache RAM
+  public Page<OrderDTO> getAllOrders(
+      int page, int limit, String orderCode, Integer status, LocalDate start, LocalDate end) {
+    List<SearchCondition> conditions = new ArrayList<>();
+    if (status != null) {
+      conditions.add(new SearchCondition("status", "=", String.valueOf(status)));
+    }
+    if (start != null) {
+      conditions.add(new SearchCondition("createdAt", ">=", start.toString()));
+    }
+    if (end != null) {
+      conditions.add(new SearchCondition("createdAt", "<=", end.toString()));
+    }
+    AdvancedSearchRequest request = new AdvancedSearchRequest();
+    request.setKeyword(orderCode);
+    request.setGroups(List.of(new SearchGroup("AND", conditions)));
+    request.setPage(page);
+    request.setLimit(limit);
+
+    SearchResponse<OrderDTO> result = searchOrders(request);
+    Pageable pageable = PageRequest.of(Math.max(page - 1, 0), Math.max(limit, 1));
+    return new PageImpl<>(result.getItems(), pageable, result.getTotal());
+  }
+
+  // đếm số lượng order có status đó (tính trên danh sách RAM)
+  public Map<Integer, Long> getOrderCountByStatus(List<Integer> statuses) {
+    Map<Integer, Long> counts =
+        getCachedOrders().stream()
+            .filter(o -> o.getStatus() != null && statuses.contains(o.getStatus()))
+            .collect(Collectors.groupingBy(OrderDTO::getStatus, Collectors.counting()));
+    Map<Integer, Long> map = new HashMap<>(counts);
     for (Integer s : statuses) {
       map.putIfAbsent(s, 0L);
     }
@@ -192,6 +316,12 @@ public class OrderService {
   // cập nhật status của order
   @Transactional
   public OrderDTO updateOrderStatus(String orderId, Integer status) {
+    return updateOrderStatus(orderId, status, null);
+  }
+
+  // cập nhật status của order, ghi nhận nhân viên xác nhận đơn (0 -> 1)
+  @Transactional
+  public OrderDTO updateOrderStatus(String orderId, Integer status, String staffId) {
     Order order =
         orderRepository
             .findById(orderId)
@@ -238,8 +368,21 @@ public class OrderService {
       }
     }
 
+    // nhân viên xác nhận đơn
+    if (status == 1 && order.getStaff() == null && staffId != null && !staffId.isBlank()) {
+      userRepository
+          .findById(staffId)
+          .filter(user -> user.getRole() != null && user.getRole() >= 0 && user.getRole() <= 2)
+          .ifPresent(
+              staff -> {
+                order.setStaff(staff);
+                order.setConfirmedAt(LocalDateTime.now());
+              });
+    }
+
     order.setStatus(status);
     Order updatedOrder = orderRepository.save(order);
+    invalidateCaches();
     return convertToDTO(updatedOrder);
   }
 
@@ -284,6 +427,10 @@ public class OrderService {
                             .findById(d.getBookId())
                             .orElseThrow(() -> new EntityNotFoundException("Sách không tìm thấy"));
 
+                    if (d.getQuantity() == null || d.getQuantity() <= 0) {
+                      throw new IllegalArgumentException("Số lượng không hợp lệ");
+                    }
+
                     // Kiểm tra số lượng
                     if (d.getQuantity() > book.getStock()) {
                       throw new IllegalArgumentException(book.getTitle() + " không đủ số lượng");
@@ -295,29 +442,27 @@ public class OrderService {
                       bookRepository.save(book);
                     }
 
-                    return OrderDetail.builder()
-                        .book(book)
-                        .order(order)
-                        .quantity(d.getQuantity())
-                        .price(d.getPrice())
-                        .discount(d.getDiscount())
-                        .build();
+                    // Đơn giá & giảm giá lấy từ sách trong database (không tin giá client gửi)
+                    double price = book.getPrice() != null ? book.getPrice() : 0;
+                    double discount = book.getDiscount() != null ? book.getDiscount() : 0;
+                    discount = Math.max(0, Math.min(discount, price));
+
+                    OrderDetail detail =
+                        OrderDetail.builder()
+                            .book(book)
+                            .order(order)
+                            .quantity(d.getQuantity())
+                            .price(price)
+                            .discount(discount)
+                            .build();
+                    detail.calculateAmounts();
+                    return detail;
                   })
               .collect(Collectors.toList());
 
-      // Tính tổng tiền
-      double total =
-          details.stream()
-              .mapToDouble(
-                  d -> {
-                    double finalPrice =
-                        d.getDiscount() > 0 ? (d.getPrice() - d.getDiscount()) : d.getPrice();
-                    return finalPrice * d.getQuantity();
-                  })
-              .sum();
-
+      // Tính tổng tiền: tiền trước giảm, tổng giảm, thành tiền
       order.setItems(details);
-      order.setTotal(total);
+      order.recalculateTotals();
 
       // xóa giỏ hàng cho phương thức thanh toán COD
       if ("cod".equalsIgnoreCase(orderDTO.getPaymethod())) {
@@ -331,6 +476,7 @@ public class OrderService {
     }
 
     Order savedOrder = orderRepository.save(order);
+    invalidateCaches();
 
     return convertToDTO(savedOrder);
   }
@@ -406,6 +552,7 @@ public class OrderService {
 
     if (!expiredOrders.isEmpty()) {
       orderRepository.deleteAll(expiredOrders);
+      invalidateCaches();
     }
   }
 }

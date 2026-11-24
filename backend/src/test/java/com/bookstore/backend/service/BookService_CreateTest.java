@@ -9,6 +9,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.bookstore.backend.cache.DataCacheRegistry;
 import com.bookstore.backend.entities.Book;
 import com.bookstore.backend.entities.Category;
 import com.bookstore.backend.entities.ImageBook;
@@ -16,6 +17,7 @@ import com.bookstore.backend.repository.BookRepository;
 import com.bookstore.backend.repository.CartItemRepository;
 import com.bookstore.backend.repository.CategoryRepository;
 import com.bookstore.backend.repository.ImageBookRepository;
+import com.bookstore.backend.repository.ImportReceiptDetailRepository;
 import com.bookstore.backend.repository.OrderDetailRepository;
 import jakarta.persistence.EntityNotFoundException;
 import java.io.File;
@@ -28,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.multipart.MultipartFile;
@@ -41,6 +44,10 @@ class BookService_CreateTest {
   @Mock private OrderDetailRepository orderDetailRepository;
   @Mock private CartItemRepository cartItemRepository;
   @Mock private CategoryRepository categoryRepository;
+
+  @Mock private ImportReceiptDetailRepository importReceiptDetailRepository;
+
+  @Spy private DataCacheRegistry cacheRegistry = new DataCacheRegistry();
 
   @InjectMocks private BookService bookService;
 

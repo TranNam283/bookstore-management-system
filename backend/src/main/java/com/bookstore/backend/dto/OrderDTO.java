@@ -21,7 +21,13 @@ public class OrderDTO {
   private String ward;
   private String paymethod;
   private Integer status;
-  private Double total;
+  private Double total; // tổng thanh toán (sau giảm)
+  private Double subtotal; // tổng tiền trước giảm
+  private Double discountTotal; // tổng tiền giảm
+  private Integer totalQuantity; // tổng số cuốn
+  private String staffId; // nhân viên xác nhận
+  private String staffName;
+  private LocalDateTime confirmedAt;
   private String accountEmail;
   private LocalDateTime createdAt;
   private List<OrderDetailDTO> items;

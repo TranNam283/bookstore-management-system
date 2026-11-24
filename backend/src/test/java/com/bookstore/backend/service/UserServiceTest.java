@@ -10,6 +10,7 @@ import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.bookstore.backend.cache.DataCacheRegistry;
 import com.bookstore.backend.dto.UserDTO;
 import com.bookstore.backend.entities.User;
 import com.bookstore.backend.repository.AddressRepository;
@@ -24,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -41,6 +43,8 @@ class UserServiceTest {
   @Mock private OrderRepository orderRepository;
   @Mock private CartRepository cartRepository;
   @Mock private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+
+  @Spy private DataCacheRegistry cacheRegistry = new DataCacheRegistry();
 
   @InjectMocks private UserService userService;
 

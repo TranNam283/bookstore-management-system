@@ -8,14 +8,14 @@ function BestsellerBook() {
   const { books, isLoading } = useGetBestsellerBooks();
   return (
     <>
-      <div className="py-[1.3rem] px-[1.2rem] bg-[#f1f4f9]">
+      <div className="py-2 px-2 bg-[#f1f4f9]">
         <div className="flex justify-between items-center">
           <h2 className=" text-[#74767d]">Top bán chạy</h2>
         </div>
       </div>
 
       <div className=" bg-white w-full overflow-auto">
-        <table className="w-[350%] border-collapse sm:w-[220%] xl:w-full text-[0.9rem]">
+        <table className="admin-table">
           <thead>
             <tr className="bg-[#E9EDF2] text-left">
               <th className="p-[1rem]  ">Tiêu đề</th>
@@ -41,7 +41,7 @@ function BestsellerBook() {
                   <tr key={book.id} className="hover:bg-[#f2f3f8]">
                     <td className="p-[1rem] font-semibold">
                       <div className="flex gap-[10px] items-center">
-                        <div className="relative group w-[80px] h-[80px] overflow-hidden">
+                        <div className="relative group w-8 h-8 overflow-hidden">
                           {book.images?.[0]?.image && (
                             <Image
                               source={`${import.meta.env.VITE_BACKEND_URL}${
@@ -95,7 +95,7 @@ function BestsellerBook() {
                     <td className="p-[1rem]  ">
                       <div className="flex items-center gap-[15px]">
                         <Link to={`/admin/edit-book/${book.id}`}>
-                          <LiaEdit size={22} className="text-[#076ffe]" />
+                          <LiaEdit size={17} className="text-[#076ffe]" />
                         </Link>
                       </div>
                     </td>
@@ -104,7 +104,7 @@ function BestsellerBook() {
               })
             ) : (
               <tr>
-                <td colSpan={8} className="w-full h-[70vh]">
+                <td colSpan={8} className="w-full h-[30vh]">
                   <div className="flex justify-center items-center">
                     <Image
                       source={"/assets/notfound1.png"}

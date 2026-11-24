@@ -1,5 +1,7 @@
 package com.bookstore.backend.service;
 
+import com.bookstore.backend.cache.CacheNames;
+import com.bookstore.backend.cache.DataCacheRegistry;
 import com.bookstore.backend.entities.Publisher;
 import com.bookstore.backend.repository.BookRepository;
 import com.bookstore.backend.repository.PublisherRepository;
@@ -19,9 +21,15 @@ public class PublisherService {
   private final PublisherRepository publisherRepository;
   private final BookRepository bookRepository;
 
-  public PublisherService(PublisherRepository publisherRepository, BookRepository bookRepository) {
+  private final DataCacheRegistry cacheRegistry;
+
+  public PublisherService(
+      PublisherRepository publisherRepository,
+      BookRepository bookRepository,
+      DataCacheRegistry cacheRegistry) {
     this.publisherRepository = publisherRepository;
     this.bookRepository = bookRepository;
+    this.cacheRegistry = cacheRegistry;
   }
 
   // lấy tất cả publishers
@@ -69,7 +77,9 @@ public class PublisherService {
               publisher.setSlug(SlugUtil.toSlug(publisher.getName()));
               existingPublisher.setName(publisher.getName());
               existingPublisher.setSlug(publisher.getSlug());
-              return publisherRepository.save(existingPublisher);
+              Publisher saved = publisherRepository.save(existingPublisher);
+              cacheRegistry.invalidate(CacheNames.BOOKS, CacheNames.IMPORT_RECEIPTS);
+              return saved;
             })
         .orElseThrow(() -> new EntityNotFoundException("Nhà xuất bản không tìm thấy"));
   }

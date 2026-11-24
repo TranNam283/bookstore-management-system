@@ -1,7 +1,11 @@
 package com.bookstore.backend.controller;
 
 import com.bookstore.backend.dto.OrderDTO;
+import com.bookstore.backend.dto.search.AdvancedSearchRequest;
+import com.bookstore.backend.dto.search.SearchResponse;
 import com.bookstore.backend.service.OrderService;
+import com.bookstore.backend.service.StatisticsService;
+import com.bookstore.backend.utils.CurrentUserResolver;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
@@ -17,9 +21,16 @@ import org.springframework.web.bind.annotation.*;
 public class OrderController {
 
   private final OrderService orderService;
+  private final StatisticsService statisticsService;
+  private final CurrentUserResolver currentUserResolver;
 
-  public OrderController(OrderService orderService) {
+  public OrderController(
+      OrderService orderService,
+      StatisticsService statisticsService,
+      CurrentUserResolver currentUserResolver) {
     this.orderService = orderService;
+    this.statisticsService = statisticsService;
+    this.currentUserResolver = currentUserResolver;
   }
 
   // order cho admin
@@ -46,6 +57,24 @@ public class OrderController {
             "totalByStatus", totalByStatus));
   }
 
+  // tìm kiếm nâng cao trên danh sách RAM: nhóm điều kiện AND/OR với >, <, =, >=, <=
+  @PostMapping("/search")
+  public ResponseEntity<SearchResponse<OrderDTO>> searchOrders(
+      @RequestBody(required = false) AdvancedSearchRequest request) {
+    return ResponseEntity.ok(orderService.searchOrders(request));
+  }
+
+  @GetMapping("/search-options")
+  public ResponseEntity<Map<String, Object>> getSearchOptions() {
+    return ResponseEntity.ok(orderService.getSearchOptions());
+  }
+
+  @GetMapping("/status-count")
+  public ResponseEntity<Map<Integer, Long>> getStatusCount() {
+    return ResponseEntity.ok(
+        orderService.getOrderCountByStatus(Arrays.asList(-1, 0, 1, 2, 3, 4, 5)));
+  }
+
   @GetMapping("/{id}")
   public ResponseEntity<OrderDTO> getOrderById(@PathVariable String id) {
     OrderDTO orderDTO = orderService.getOrderById(id);
@@ -54,8 +83,11 @@ public class OrderController {
 
   @PutMapping("/{id}")
   public ResponseEntity<OrderDTO> updateOrderStatus(
-      @PathVariable("id") String orderId, @RequestParam Integer status) {
-    OrderDTO updatedOrder = orderService.updateOrderStatus(orderId, status);
+      @PathVariable("id") String orderId,
+      @RequestParam Integer status,
+      @RequestHeader(value = "Authorization", required = false) String authHeader) {
+    String staffId = currentUserResolver.resolveUserId(authHeader);
+    OrderDTO updatedOrder = orderService.updateOrderStatus(orderId, status, staffId);
     return ResponseEntity.ok(updatedOrder);
   }
 
@@ -91,18 +123,6 @@ public class OrderController {
 
   @GetMapping("/statistics")
   public ResponseEntity<Map<String, Object>> getOrderStats() {
-    double totalRevenue = orderService.getTotalRevenue();
-    double todayRevenue = orderService.getTodayRevenue();
-    long totalSoldQuantity = orderService.getTotalSoldQuantity();
-    long todaySoldQuantity = orderService.getTodaySoldQuantity();
-
-    Map<String, Object> stats =
-        Map.of(
-            "totalRevenue", totalRevenue,
-            "todayRevenue", todayRevenue,
-            "totalSoldQuantity", totalSoldQuantity,
-            "todaySoldQuantity", todaySoldQuantity);
-
-    return ResponseEntity.ok(stats);
+    return ResponseEntity.ok(statisticsService.getOverview());
   }
 }

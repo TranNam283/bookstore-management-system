@@ -3,7 +3,7 @@ import Overplay from "../Overplay";
 import Image from "../../Image";
 import { IoIosArrowDown } from "react-icons/io";
 import { IoIosArrowUp } from "react-icons/io";
-import { TbCategoryPlus } from "react-icons/tb";
+import { TbCategoryPlus, TbReportAnalytics, TbTruckDelivery } from "react-icons/tb";
 import { FaRegAddressCard } from "react-icons/fa";
 import {
   LuChartNoAxesCombined,
@@ -31,8 +31,13 @@ function MenuSide({ menuOpen, onToggleMenu }: Props) {
       items: [
         {
           icon: <LuChartNoAxesCombined size={20} />,
-          label: "Thống kê",
+          label: "Tổng quan",
           path: "/admin/dashboard",
+        },
+        {
+          icon: <TbReportAnalytics size={20} />,
+          label: "Báo cáo thống kê",
+          path: "/admin/statistics",
         },
         {
           icon: <GrBook size={20} />,
@@ -73,7 +78,7 @@ function MenuSide({ menuOpen, onToggleMenu }: Props) {
       ],
     },
     {
-      title: "Đơn hàng & thanh toán",
+      title: "Hóa đơn, thanh toán & nhập hàng",
       items: [
         {
           icon: <RiShoppingBag4Line size={20} />,
@@ -84,6 +89,15 @@ function MenuSide({ menuOpen, onToggleMenu }: Props) {
           icon: <AiOutlineCreditCard size={20} />,
           label: "Thanh toán",
           path: "/admin/payments",
+        },
+        {
+          icon: <TbTruckDelivery size={20} />,
+          label: "Phiếu nhập",
+          key: "9a",
+          children: [
+            { label: "Danh sách phiếu nhập", path: "/admin/import-receipts" },
+            { label: "Lập phiếu nhập", path: "/admin/add-import-receipt" },
+          ],
         },
       ],
     },
@@ -125,7 +139,7 @@ function MenuSide({ menuOpen, onToggleMenu }: Props) {
         className={` ${menuOpen ? "left-0" : "left-[-100%]"} 
         ${
           menuOpen ? "xl:translate-x-[-100%] xl:p-0 xl:w-0" : "xl:translate-x-0"
-        } custom-scroll fixed border top-0 h-screen w-[320px] pb-5 bg-white transition-all duration-350 ease-in-out z-100 xl:sticky overflow-y-auto border-b border-gray-200`}
+        } custom-scroll fixed border top-0 h-screen w-[240px] pb-5 bg-white transition-all duration-350 ease-in-out z-100 xl:sticky overflow-y-auto border-b border-gray-200`}
       >
         <div className="mb-[20px] flex justify-center sticky top-0 bg-white px-3.5 py-4.5">
           <Image
@@ -135,7 +149,7 @@ function MenuSide({ menuOpen, onToggleMenu }: Props) {
             loading="eager"
           />
         </div>
-        <ul className="flex flex-col gap-[15px] font-semibold px-3.5">
+        <ul className="flex flex-col gap-[8px] font-semibold px-2.5 text-[14px]">
           {menuData.map((group, groupIndex) => (
             <div key={groupIndex} className="flex flex-col gap-[10px]">
               <p className="  uppercase">{group.title}</p>
@@ -150,7 +164,7 @@ function MenuSide({ menuOpen, onToggleMenu }: Props) {
                           item.children.some((child) => pathname === child.path)
                             ? "text-[#C62028]"
                             : "hover:bg-gray-100"
-                        } rounded-lg p-3 w-full cursor-pointer flex justify-between items-center`}
+                        } rounded-lg px-3 py-2 w-full cursor-pointer flex justify-between items-center`}
                       >
                         <p className="font-medium flex items-center gap-[10px]">
                           {item.icon} {item.label}
@@ -200,7 +214,7 @@ function MenuSide({ menuOpen, onToggleMenu }: Props) {
                         pathname === item.path
                           ? "text-white bg-[#C62028]"
                           : "hover:bg-gray-100"
-                      } rounded-lg p-3 w-full cursor-pointer flex justify-between items-center`}
+                      } rounded-lg px-3 py-2 w-full cursor-pointer flex justify-between items-center`}
                     >
                       <p className="font-medium flex items-center gap-[10px]">
                         {item.icon} {item.label}

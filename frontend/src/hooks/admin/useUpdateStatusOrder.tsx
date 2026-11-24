@@ -2,6 +2,7 @@ import axios from "axios";
 import { useState } from "react";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
+import { adminAuthHeader } from "../../utils/adminAuth";
 
 export default function useUpdateStatusOrder() {
   const [isLoading, setIsLoading] = useState(false);
@@ -16,7 +17,7 @@ export default function useUpdateStatusOrder() {
     });
 
     if (!result.isConfirmed || !id) {
-      return;
+      return false;
     }
 
     const loadingToast = toast.loading("Đang cập nhật...");
@@ -26,10 +27,12 @@ export default function useUpdateStatusOrder() {
       const url = `${
         import.meta.env.VITE_BACKEND_URL
       }/api/order/${id}?status=${status}`;
-      await axios.put(url);
+      // gửi token để backend ghi nhận nhân viên xác nhận đơn
+      await axios.put(url, null, { headers: adminAuthHeader() });
 
       toast.dismiss(loadingToast);
       toast.success("Cập nhật thành công");
+      return true;
     } catch (err) {
       console.error("Lỗi:", err);
       throw err;

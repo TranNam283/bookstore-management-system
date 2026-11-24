@@ -31,3 +31,10 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Local env ###
+.env.local
+
+### File ảnh do unit test tạo ra khi chạy mvn test ###
+uploads/books/book1/
+uploads/books/*/img-old.jpg

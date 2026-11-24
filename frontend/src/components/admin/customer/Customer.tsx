@@ -2,29 +2,36 @@ import { VscTrash } from "react-icons/vsc";
 import { LiaEdit } from "react-icons/lia";
 import { IoMdAddCircle } from "react-icons/io";
 import { TbLock, TbLockOpen } from "react-icons/tb";
+import { useMemo } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import toast from "react-hot-toast";
 import Pagination from "../Pagination";
 import FilterDropDownMenu from "../FilterDropDownMenu";
-import Image from "../../Image";
 import InputSearch from "../InputSearch";
-import toast from "react-hot-toast";
-import useGetCustomers from "../../../hooks/admin/useGetCustomers";
-import useDeleteUser from "../../../hooks/admin/useDeleteUser";
-import { Link } from "react-router-dom";
 import Loading from "../../Loading";
+import SortableTh from "../SortableTh";
+import AdvancedSearchPanel from "../AdvancedSearchPanel";
+import useAdvancedSearch, { useAdvancedSearchState } from "../../../hooks/admin/useAdvancedSearch";
+import useDeleteUser from "../../../hooks/admin/useDeleteUser";
 import useUpdateStatusUser from "../../../hooks/admin/useUpdateStatusUser";
+import { useOrderSearchOptions } from "../../../hooks/admin/useSearchOptions";
+import type { CustomerSummary, SearchCondition, SearchField } from "../../../types/type";
+import { formatDate, formatMoney, formatNumber } from "../../../utils/format";
+
 function Customer() {
-  const {
-    customers,
-    mutate,
-    isLoading,
-    totalPages,
-    totalItems,
-    currentPage,
-    limit,
-  } = useGetCustomers();
+  const [searchParams] = useSearchParams();
+  const statusParam = searchParams.get("status");
+  const quickConditions: SearchCondition[] = useMemo(
+    () => (statusParam !== null ? [{ field: "status", operator: "=", value: statusParam }] : []),
+    [statusParam],
+  );
+  const { request, groups, applyGroups, sortBy, sortDir, toggleSort, page, limit } =
+    useAdvancedSearchState(20, quickConditions);
+  const { items: customers, total, totalPages, summary, isLoading, mutate } =
+    useAdvancedSearch<CustomerSummary>("/api/customer/search", request);
+  const { cities } = useOrderSearchOptions();
   const { deleteUser, isLoading: isLoadingDelete } = useDeleteUser();
-  const { updateStatusUser, isLoading: isLoadingUpdate } =
-    useUpdateStatusUser();
+  const { updateStatusUser, isLoading: isLoadingUpdate } = useUpdateStatusUser();
 
   const array = [
     { name: "Tất cả", value: null },
@@ -32,10 +39,66 @@ function Customer() {
     { name: "Bị chặn", value: 0 },
   ];
 
+  const fields: SearchField[] = useMemo(
+    () => [
+      { key: "totalSpent", label: "Tổng chi tiêu", type: "number" },
+      { key: "orderCount", label: "Số đơn", type: "number" },
+      { key: "deliveredCount", label: "Số đơn thành công", type: "number" },
+      { key: "createdAt", label: "Ngày đăng ký", type: "date" },
+      { key: "lastOrderAt", label: "Lần mua gần nhất", type: "date" },
+      {
+        key: "city",
+        label: "Thành phố",
+        type: "select",
+        options: cities.map((c) => ({ value: c, label: c })),
+      },
+      {
+        key: "status",
+        label: "Tình trạng",
+        type: "select",
+        options: [
+          { value: "1", label: "Bình thường" },
+          { value: "0", label: "Bị chặn" },
+        ],
+      },
+      { key: "fullname", label: "Họ tên", type: "text" },
+      { key: "email", label: "Email", type: "text" },
+    ],
+    [cities],
+  );
+
+  const presets = useMemo(
+    () => [
+      {
+        label: "Khách ở TP.HCM hoặc Hà Nội",
+        groups: [
+          {
+            logic: "OR" as const,
+            conditions: [
+              { field: "city", operator: "=" as const, value: "Hồ Chí Minh" },
+              { field: "city", operator: "=" as const, value: "Hà Nội" },
+            ],
+          },
+        ],
+      },
+      {
+        label: "Chi tiêu 1tr – 5tr",
+        groups: [
+          {
+            logic: "AND" as const,
+            conditions: [
+              { field: "totalSpent", operator: ">=" as const, value: "1000000" },
+              { field: "totalSpent", operator: "<=" as const, value: "5000000" },
+            ],
+          },
+        ],
+      },
+    ],
+    [],
+  );
+
   const handleDelete = async (id: string) => {
-    if (!id) {
-      return;
-    }
+    if (!id) return;
     try {
       await deleteUser(id);
       mutate();
@@ -46,10 +109,7 @@ function Customer() {
   };
 
   const handleUpdateStatus = async (id: string, status: number) => {
-    if (!id && !status) {
-      return;
-    }
-
+    if (!id) return;
     try {
       await updateStatusUser(id, status);
       mutate();
@@ -59,115 +119,120 @@ function Customer() {
     }
   };
 
-  return (
-    <>
-      <div className="py-[1.3rem] px-[1.2rem] bg-[#f1f4f9]">
-        <div className="flex justify-between items-center flex-wrap gap-[20px]">
-          <h2 className=" text-[#74767d]">Khách hàng ({totalItems})</h2>
+  const th = (field: string, label: string, className = "") => (
+    <SortableTh field={field} label={label} sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} className={className} />
+  );
 
+  return (
+    <div className="bg-[#f1f4f9] p-2 space-y-2">
+      <div className="flex justify-between items-center flex-wrap gap-2">
+        <h2 className="text-[15px] font-semibold text-gray-700">
+          Khách hàng ({formatNumber(total)}) – tổng chi tiêu {formatMoney(summary.totalSpent)}
+        </h2>
+        <div className="flex items-center gap-2">
+          <InputSearch />
           <Link
             to={"/admin/add-customer"}
-            className="bg-[#C62028] border-0 cursor-pointer text-[0.9rem] font-medium w-[90px] !flex p-[10px_12px] items-center justify-center gap-[5px] text-white"
+            className="bg-[#C62028] text-white text-[13px] font-medium !flex px-3 py-[5px] items-center gap-1"
           >
-            <IoMdAddCircle size={22} /> Thêm
+            <IoMdAddCircle size={18} /> Thêm
           </Link>
         </div>
       </div>
 
-      <div className=" bg-white w-full overflow-auto">
-        <div className="p-[1.2rem]">
-          <InputSearch />
-        </div>
+      <AdvancedSearchPanel fields={fields} value={groups} onApply={applyGroups} presets={presets} />
 
-        <table className="w-[350%] border-collapse sm:w-[220%] xl:w-full text-[0.9rem]">
-          <thead>
-            <tr className="bg-[#E9EDF2] text-left">
-              <th className="p-[1rem]  ">Họ tên</th>
-              <th className="p-[1rem]  ">Email</th>
-              <th className="p-[1rem]   relative">
-                <FilterDropDownMenu
-                  title="Tình trạng"
-                  array={array}
-                  paramName="status"
-                />
-              </th>
-              <th className="p-[1rem]  ">Hành động</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
+      <div className="bg-white border border-gray-300">
+        <div className="overflow-auto max-h-[calc(100vh-250px)]">
+          <table className="admin-table">
+            <thead>
               <tr>
-                <td colSpan={8} className="w-full">
-                  <Loading height={60} size={50} color="black" thickness={2} />
-                </td>
+                <th>#</th>
+                {th("fullname", "Họ tên")}
+                {th("email", "Email")}
+                {th("city", "Thành phố")}
+                {th("createdAt", "Ngày đăng ký")}
+                {th("orderCount", "Số đơn", "num")}
+                {th("deliveredCount", "Thành công", "num")}
+                {th("totalSpent", "Tổng chi tiêu", "num")}
+                {th("lastOrderAt", "Mua gần nhất")}
+                <th className="relative">
+                  <FilterDropDownMenu title="Tình trạng" array={array} paramName="status" />
+                </th>
+                <th>Hành động</th>
               </tr>
-            ) : customers.length > 0 ? (
-              customers.map((customer) => (
-                <tr key={customer.id} className="hover:bg-[#f2f3f8]">
-                  <td className="p-[1rem]  font-semibold">
-                    {customer.fullname}
-                  </td>
-                  <td className="p-[1rem]">{customer.email}</td>
-                  <td className="p-[1rem]  ">
-                    {customer.status === 1 ? "Bình thường" : "Bị chặn"}
-                  </td>
-                  <td className="p-[1rem]  ">
-                    <div className="flex items-center gap-[15px]">
-                      <button
-                        disabled={isLoadingUpdate}
-                        onClick={() =>
-                          handleUpdateStatus(
-                            customer.id || "",
-                            customer.status === 1 ? 0 : 1
-                          )
-                        }
-                      >
-                        {customer.status === 1 ? (
-                          <TbLock size={22} className="text-[#74767d]" />
-                        ) : (
-                          <TbLockOpen size={22} className="text-[#74767d]" />
-                        )}
-                      </button>
-
-                      <Link to={`/admin/edit-customer/${customer.id}`}>
-                        <LiaEdit size={22} className="text-[#076ffe]" />
-                      </Link>
-
-                      <button
-                        disabled={isLoadingDelete}
-                        onClick={() => handleDelete(customer.id || "")}
-                      >
-                        <VscTrash size={22} className="text-[#d9534f]" />
-                      </button>
-                    </div>
+            </thead>
+            <tbody>
+              {isLoading && customers.length === 0 ? (
+                <tr>
+                  <td colSpan={11}>
+                    <Loading height={60} size={40} color="black" thickness={2} />
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={8} className="w-full h-[70vh]">
-                  <div className="flex justify-center items-center">
-                    <Image
-                      source={"/assets/notfound1.png"}
-                      alt={""}
-                      className={"w-[135px]"}
-                      loading="lazy"
-                    />
-                  </div>
-                </td>
-              </tr>
+              ) : customers.length > 0 ? (
+                customers.map((customer, index) => (
+                  <tr key={customer.id}>
+                    <td className="text-gray-400">{(page - 1) * limit + index + 1}</td>
+                    <td className="font-medium">{customer.fullname}</td>
+                    <td>{customer.email}</td>
+                    <td>{customer.cities.join(", ") || "-"}</td>
+                    <td>{formatDate(customer.createdAt)}</td>
+                    <td className="num">{customer.orderCount}</td>
+                    <td className="num">{customer.deliveredCount}</td>
+                    <td className="num font-semibold">{formatNumber(customer.totalSpent)}</td>
+                    <td>{formatDate(customer.lastOrderAt)}</td>
+                    <td>{customer.status === 1 ? "Bình thường" : "Bị chặn"}</td>
+                    <td>
+                      <div className="flex items-center gap-2">
+                        <button
+                          disabled={isLoadingUpdate}
+                          title={customer.status === 1 ? "Khóa" : "Mở khóa"}
+                          onClick={() => handleUpdateStatus(customer.id, customer.status === 1 ? 0 : 1)}
+                        >
+                          {customer.status === 1 ? (
+                            <TbLock size={17} className="text-[#74767d]" />
+                          ) : (
+                            <TbLockOpen size={17} className="text-[#74767d]" />
+                          )}
+                        </button>
+                        <Link to={`/admin/edit-customer/${customer.id}`} title="Sửa">
+                          <LiaEdit size={17} className="text-[#076ffe]" />
+                        </Link>
+                        <button
+                          disabled={isLoadingDelete}
+                          title="Xóa"
+                          onClick={() => handleDelete(customer.id)}
+                        >
+                          <VscTrash size={17} className="text-[#d9534f]" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={11} className="text-center text-gray-500 py-6">
+                    Không có khách hàng phù hợp
+                  </td>
+                </tr>
+              )}
+            </tbody>
+            {customers.length > 0 && (
+              <tfoot>
+                <tr>
+                  <td colSpan={5}>Tổng {formatNumber(summary.count)} khách hàng (theo bộ lọc)</td>
+                  <td className="num">{formatNumber(summary.orderCount)}</td>
+                  <td></td>
+                  <td className="num">{formatNumber(summary.totalSpent)}</td>
+                  <td colSpan={3}></td>
+                </tr>
+              </tfoot>
             )}
-          </tbody>
-        </table>
+          </table>
+        </div>
+        <Pagination totalPages={totalPages} currentPage={page} limit={limit} totalItems={total} />
       </div>
-
-      <Pagination
-        totalPages={totalPages}
-        currentPage={currentPage}
-        limit={limit}
-        totalItems={totalItems}
-      />
-    </>
+    </div>
   );
 }
 

@@ -14,6 +14,8 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface OrderRepository extends JpaRepository<Order, String> {
+  boolean existsByStaff(User staff);
+
   boolean existsByUser(User user);
 
   Page<Order> findByOrderCodeContainingIgnoreCase(String orderCode, Pageable pageable);
