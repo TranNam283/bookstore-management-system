@@ -29,6 +29,10 @@ import BookPage from "./pages/admin/BookPage";
 import ImportReceiptPage from "./pages/admin/ImportReceiptPage";
 import AddImportReceiptPage from "./pages/admin/AddImportReceiptPage";
 import StatisticsPage from "./pages/admin/StatisticsPage";
+import SupplierPage from "./pages/admin/SupplierPage";
+import ExportReceiptPage from "./pages/admin/ExportReceiptPage";
+import AddExportReceiptPage from "./pages/admin/AddExportReceiptPage";
+import InventoryPage from "./pages/admin/InventoryPage";
 import AddBookPage from "./pages/admin/AddBookPage";
 import EditBookPage from "./pages/admin/EditBookPage";
 import BookCategoryPage from "./pages/client/BookCategoryPage";
@@ -269,7 +273,7 @@ function LayoutRoute() {
         element={
           <PrivateRoute
             type="admin"
-            allowedRoles={[0]}
+            allowedRoles={[0, 1, 2]}
             redirectPath="/admin/login"
           >
             <AdminPage />
@@ -306,7 +310,7 @@ function LayoutRoute() {
         element={
           <PrivateRoute
             type="admin"
-            allowedRoles={[0]}
+            allowedRoles={[0, 1, 2]}
             redirectPath="/admin/login"
           >
             <CustomerPage />
@@ -433,6 +437,54 @@ function LayoutRoute() {
             redirectPath="/admin/login"
           >
             <StatisticsPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/admin/suppliers"
+        element={
+          <PrivateRoute
+            type="admin"
+            allowedRoles={[0, 1, 2]}
+            redirectPath="/admin/login"
+          >
+            <SupplierPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/admin/export-receipts"
+        element={
+          <PrivateRoute
+            type="admin"
+            allowedRoles={[0, 1, 2]}
+            redirectPath="/admin/login"
+          >
+            <ExportReceiptPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/admin/add-export-receipt"
+        element={
+          <PrivateRoute
+            type="admin"
+            allowedRoles={[0, 1, 2]}
+            redirectPath="/admin/login"
+          >
+            <AddExportReceiptPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/admin/inventory"
+        element={
+          <PrivateRoute
+            type="admin"
+            allowedRoles={[0, 1, 2]}
+            redirectPath="/admin/login"
+          >
+            <InventoryPage />
           </PrivateRoute>
         }
       />

@@ -1,6 +1,7 @@
 import { Navigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import Cookies from "js-cookie";
+import NoPermission from "./admin/NoPermission";
 
 interface JwtPayload {
   id: string;
@@ -40,6 +41,10 @@ const PrivateRoute = ({
     // kiểm tra quyền truy cập
     const role = Number(decoded.role);
     if (!allowedRoles.includes(role)) {
+      // nhân viên đã đăng nhập nhưng không đủ quyền: báo rõ thay vì quay về trang khác
+      if (type === "admin" && role >= 0 && role <= 2) {
+        return <NoPermission role={role} />;
+      }
       return <Navigate to={redirectPath} replace />;
     }
 

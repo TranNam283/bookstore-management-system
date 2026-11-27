@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import useAdvancedSearch from "../../../hooks/admin/useAdvancedSearch";
 import useGetPublishers1 from "../../../hooks/admin/useGetPublishers1";
 import useAddImportReceipt from "../../../hooks/admin/useAddImportReceipt";
+import useSuppliers from "../../../hooks/admin/useSuppliers";
 import type { Book } from "../../../types/type";
 import { formatMoney, formatNumber } from "../../../utils/format";
 
@@ -19,6 +20,8 @@ function AddImportReceipt() {
   const { addImportReceipt, isLoading } = useAddImportReceipt();
 
   const [publisherId, setPublisherId] = useState("");
+  const [supplierId, setSupplierId] = useState("");
+  const { suppliers } = useSuppliers();
   const [note, setNote] = useState("");
   const [lines, setLines] = useState<Line[]>([{ bookId: "", quantity: 10, importPrice: 0 }]);
 
@@ -60,7 +63,12 @@ function AddImportReceipt() {
       toast.error("Số lượng phải > 0 và giá nhập ≥ 0");
       return;
     }
+    if (!supplierId) {
+      toast.error("Hãy chọn nhà cung cấp");
+      return;
+    }
     const created = await addImportReceipt({
+      supplierId,
       publisherId: publisherId || undefined,
       note: note || undefined,
       items,
@@ -76,7 +84,20 @@ function AddImportReceipt() {
 
       <div className="bg-white border border-gray-300 p-3 flex flex-wrap gap-4">
         <label className="flex flex-col gap-1">
-          Nhà xuất bản (nhà cung cấp)
+          Nhà cung cấp *
+          <select value={supplierId} onChange={(e) => setSupplierId(e.target.value)} className={`${inputClass} min-w-[260px]`}>
+            <option value="">-- chọn nhà cung cấp --</option>
+            {suppliers
+              .filter((s) => s.status === 1)
+              .map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.code} – {s.name}
+                </option>
+              ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          Lọc sách theo nhà xuất bản
           <select value={publisherId} onChange={(e) => setPublisherId(e.target.value)} className={`${inputClass} min-w-[220px]`}>
             <option value="">-- Tất cả / không chọn --</option>
             {publishers.map((p) => (

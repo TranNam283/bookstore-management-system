@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import { printInvoice } from "../../../utils/printInvoice";
+import Badge from "../ui/Badge";
+import PageHeader from "../ui/PageHeader";
+import { ORDER_STATUS_TONE } from "../../../utils/labels";
 import toast from "react-hot-toast";
 import Image from "../../Image";
 import Pagination from "../Pagination";
@@ -13,7 +17,6 @@ import useUpdateStatusOrder from "../../../hooks/admin/useUpdateStatusOrder";
 import type { Order as OrderType, SearchCondition, SearchField } from "../../../types/type";
 import {
   ORDER_STATUS,
-  ORDER_STATUS_COLOR,
   formatDateTime,
   formatMoney,
   formatNumber,
@@ -202,9 +205,15 @@ function Order() {
       : (counts[value] ?? 0);
 
   return (
-    <div className="bg-[#f1f4f9] p-2 space-y-2">
+    <div className="bg-[#f1f4f9] min-h-full">
+      <PageHeader
+        title={`Hóa đơn bán hàng (${formatNumber(total)})`}
+        breadcrumb={[{ label: "Bán hàng" }, { label: "Hóa đơn" }]}
+        subtitle="Chọn một hóa đơn để xem chi tiết từng món, lịch sử xử lý và in hóa đơn. Phím ↑/↓ để chuyển nhanh."
+        actions={<InputSearch />}
+      />
+    <div className="p-2 space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="text-[15px] font-semibold text-gray-700 mr-2">Hóa đơn ({formatNumber(total)})</h2>
         {STATUS_FILTERS.map((s) => (
           <button
             key={s.label}
@@ -217,9 +226,6 @@ function Order() {
             {s.label} <b>{formatNumber(countOf(s.value))}</b>
           </button>
         ))}
-        <div className="ml-auto">
-          <InputSearch />
-        </div>
       </div>
 
       <AdvancedSearchPanel fields={fields} value={groups} onApply={applyGroups} presets={presets} />
@@ -273,7 +279,9 @@ function Order() {
                       <td className="num text-red-600">{order.discountTotal ? `-${formatNumber(order.discountTotal)}` : "0"}</td>
                       <td className="num font-semibold">{formatNumber(order.total)}</td>
                       <td>{order.staffName ?? <span className="text-gray-400">-</span>}</td>
-                      <td className={ORDER_STATUS_COLOR[order.status]}>{ORDER_STATUS[order.status]}</td>
+                      <td>
+                        <Badge tone={ORDER_STATUS_TONE[order.status]}>{ORDER_STATUS[order.status]}</Badge>
+                      </td>
                     </tr>
                   ))
                 ) : (
@@ -305,7 +313,15 @@ function Order() {
         <aside className="bg-white border border-gray-300 text-[13px] xl:sticky xl:top-[60px] self-start">
           <div className="px-3 py-2 border-b border-gray-200 bg-[#f7f8fa] flex items-center justify-between">
             <b>Chi tiết hóa đơn {selected ? `#${selected.orderCode}` : ""}</b>
-            <span className="text-[11px] text-gray-500">↑/↓ để chuyển hóa đơn</span>
+            {selected && (
+              <button
+                type="button"
+                onClick={() => printInvoice(selected)}
+                className="rounded border border-gray-300 bg-white px-2 py-[2px] text-[12px] hover:bg-gray-100"
+              >
+                🖨 In hóa đơn
+              </button>
+            )}
           </div>
           {selected ? (
             <div className="p-3 space-y-2">
@@ -317,7 +333,18 @@ function Order() {
                   {selected.fullname} – {selected.phone}
                 </span>
                 <span className="text-gray-500">Tài khoản</span>
-                <span>{selected.accountEmail || "-"}</span>
+                <span>
+                  {selected.accountEmail ? (
+                    <Link
+                      to={`/admin/customers?q=${encodeURIComponent(selected.accountEmail)}`}
+                      className="text-blue-700 hover:underline"
+                    >
+                      {selected.accountEmail}
+                    </Link>
+                  ) : (
+                    "-"
+                  )}
+                </span>
                 <span className="text-gray-500">Địa chỉ</span>
                 <span>{[selected.speaddress, selected.ward, selected.city].filter(Boolean).join(", ")}</span>
                 <span className="text-gray-500">Thanh toán</span>
@@ -329,7 +356,7 @@ function Order() {
                 </span>
                 <span className="text-gray-500">Trạng thái</span>
                 <span className="flex items-center gap-2">
-                  <b className={ORDER_STATUS_COLOR[selected.status]}>{ORDER_STATUS[selected.status]}</b>
+                  <Badge tone={ORDER_STATUS_TONE[selected.status]}>{ORDER_STATUS[selected.status]}</Badge>
                   {NEXT_STATUS[selected.status]?.length > 0 && (
                     <select
                       disabled={isUpdating}
@@ -344,6 +371,19 @@ function Order() {
                         </option>
                       ))}
                     </select>
+                  )}
+                </span>
+                <span className="text-gray-500">Phiếu xuất kho</span>
+                <span>
+                  {selected.exportReceiptCode ? (
+                    <Link
+                      to={`/admin/export-receipts?q=${selected.exportReceiptCode}`}
+                      className="text-blue-700 hover:underline"
+                    >
+                      {selected.exportReceiptCode}
+                    </Link>
+                  ) : (
+                    <span className="text-gray-400">Chưa xuất kho (lập khi chuyển “Đang giao”)</span>
                   )}
                 </span>
               </div>
@@ -398,12 +438,36 @@ function Order() {
                   </tr>
                 </tfoot>
               </table>
+
+              <div>
+                <div className="mb-1 font-semibold text-gray-700">Lịch sử xử lý</div>
+                {selected.history && selected.history.length > 0 ? (
+                  <ol className="relative ml-2 border-l border-gray-300">
+                    {selected.history.map((h, i) => (
+                      <li key={i} className="mb-2 ml-3">
+                        <span className="absolute -left-[5px] mt-1 h-2.5 w-2.5 rounded-full border border-white bg-gray-400" />
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <Badge tone={ORDER_STATUS_TONE[h.toStatus]}>{ORDER_STATUS[h.toStatus]}</Badge>
+                          <span className="text-[12px] text-gray-500">{formatDateTime(h.createdAt)}</span>
+                        </div>
+                        <div className="text-[12px] text-gray-700">
+                          {h.note}
+                          {h.staffName ? ` – ${h.staffName}` : ""}
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="text-[12px] text-gray-500">Chưa có lịch sử</p>
+                )}
+              </div>
             </div>
           ) : (
             <p className="text-gray-500 py-8 text-center">Chọn một hóa đơn để xem chi tiết</p>
           )}
         </aside>
       </div>
+    </div>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { roleLabel } from "../../utils/labels";
 import useGetCurrentUser from "../../hooks/useGetCurrentUser";
 
 function Account() {
@@ -44,13 +45,7 @@ function Account() {
               <input
                 type="text"
                 name="role"
-                value={
-                  user?.role === 0
-                    ? "Quản trị viên hệ thống"
-                    : user?.role === 1
-                    ? "Nhân viên bán hàng"
-                    : ""
-                }
+                value={user?.role !== undefined ? roleLabel(user.role) : ""}
                 readOnly
                 className="border border-gray-300 p-[6px_10px] text-[0.9rem] w-full outline-none focus:border-gray-400  "
               />
