@@ -54,4 +54,42 @@ public class StatisticsController {
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
     return ResponseEntity.ok(statisticsService.getRevenueByStaff(from, to));
   }
+
+  // top sách + thể loại bán chạy của 1 kỳ (ngày / tuần / tháng / quý / năm chứa ngày date)
+  // hoặc của khoảng from - to; kèm số liệu kỳ liền trước để so sánh
+  @GetMapping("/top-books")
+  public ResponseEntity<Map<String, Object>> topBooks(
+      @RequestParam(defaultValue = "month") String period,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+      @RequestParam(defaultValue = "10") int limit,
+      @RequestParam(defaultValue = "false") boolean deliveredOnly) {
+    return ResponseEntity.ok(
+        statisticsService.getTopBooks(GroupBy.from(period), date, from, to, limit, deliveredOnly));
+  }
+
+  // hàng bán chạy theo từng kỳ (mỗi tháng / quý / năm một bảng xếp hạng sách + thể loại)
+  @GetMapping("/bestsellers")
+  public ResponseEntity<Map<String, Object>> bestsellers(
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+      @RequestParam(defaultValue = "quarter") String groupBy,
+      @RequestParam(defaultValue = "10") int limit,
+      @RequestParam(defaultValue = "false") boolean deliveredOnly) {
+    return ResponseEntity.ok(
+        statisticsService.getBestsellersByPeriod(
+            from, to, GroupBy.from(groupBy), limit, deliveredOnly));
+  }
+
+  // mùa vụ: cùng quý / tháng qua các năm -> dự báo & đề xuất số lượng nhập hàng
+  @GetMapping("/seasonal")
+  public ResponseEntity<Map<String, Object>> seasonal(
+      @RequestParam(defaultValue = "quarter") String unit,
+      @RequestParam int index,
+      @RequestParam(defaultValue = "20") int limit,
+      @RequestParam(defaultValue = "false") boolean deliveredOnly) {
+    return ResponseEntity.ok(
+        statisticsService.getSeasonal(GroupBy.from(unit), index, limit, deliveredOnly));
+  }
 }

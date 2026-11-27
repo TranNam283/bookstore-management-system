@@ -5,6 +5,7 @@ import com.bookstore.backend.cache.DataCacheRegistry;
 import com.bookstore.backend.cache.ListCache;
 import com.bookstore.backend.dto.OrderDTO;
 import com.bookstore.backend.dto.OrderDetailDTO;
+import com.bookstore.backend.dto.OrderStatusHistoryDTO;
 import com.bookstore.backend.dto.search.AdvancedSearchRequest;
 import com.bookstore.backend.dto.search.SearchCondition;
 import com.bookstore.backend.dto.search.SearchGroup;
@@ -56,6 +57,17 @@ public class OrderService {
   private final PaymentRepository paymentRepository;
   private final MomoService momoService;
   private final DataCacheRegistry cacheRegistry;
+  private final StockService stockService;
+  private final ExportReceiptService exportReceiptService;
+
+  public static final Map<Integer, String> STATUS_NOTE =
+      Map.of(
+          0, "Chờ xác nhận",
+          1, "Xác nhận đơn hàng",
+          2, "Bàn giao vận chuyển",
+          3, "Giao hàng thành công",
+          4, "Hủy đơn hàng",
+          5, "Khách trả hàng");
 
   // Danh sách đơn hàng trên RAM (phiên 15 phút) dùng cho tìm kiếm & thống kê
   private final ListCache<OrderDTO> orderCache;
@@ -68,7 +80,9 @@ public class OrderService {
       CartRepository cartRepository,
       PaymentRepository paymentRepository,
       MomoService momoService,
-      DataCacheRegistry cacheRegistry) {
+      DataCacheRegistry cacheRegistry,
+      StockService stockService,
+      ExportReceiptService exportReceiptService) {
     this.orderRepository = orderRepository;
     this.userRepository = userRepository;
     this.bookRepository = bookRepository;
@@ -76,6 +90,8 @@ public class OrderService {
     this.paymentRepository = paymentRepository;
     this.momoService = momoService;
     this.cacheRegistry = cacheRegistry;
+    this.stockService = stockService;
+    this.exportReceiptService = exportReceiptService;
     this.orderCache = cacheRegistry.register(CacheNames.ORDERS, this::loadOrdersFromDatabase);
   }
 
@@ -138,6 +154,22 @@ public class OrderService {
     dto.setDiscountTotal(order.getDiscountTotal());
     dto.setCreatedAt(order.getCreatedAt());
     dto.setConfirmedAt(order.getConfirmedAt());
+    dto.setHistory(
+        order.getHistory() == null
+            ? List.of()
+            : order.getHistory().stream()
+                .map(
+                    h ->
+                        OrderStatusHistoryDTO.builder()
+                            .fromStatus(h.getFromStatus())
+                            .toStatus(h.getToStatus())
+                            .staffName(h.getStaff() != null ? h.getStaff().getFullname() : null)
+                            .note(h.getNote())
+                            .createdAt(h.getCreatedAt())
+                            .build())
+                .collect(Collectors.toList()));
+    dto.setExportReceiptCode(
+        order.getExportReceipt() != null ? order.getExportReceipt().getReceiptCode() : null);
     dto.setAccountEmail(order.getUser() != null ? order.getUser().getEmail() : null);
 
     if (order.getStaff() != null) {
@@ -327,13 +359,38 @@ public class OrderService {
             .findById(orderId)
             .orElseThrow(() -> new EntityNotFoundException("Đơn hàng không tìm thấy"));
 
+    Integer previousStatus = order.getStatus();
+    if (previousStatus != null && (previousStatus == 4 || previousStatus == 5)) {
+      throw new IllegalStateException("Đơn hàng đã hủy / trả hàng, không thể đổi trạng thái");
+    }
+    if (status == null || status < 0 || status > 5) {
+      throw new IllegalArgumentException("Trạng thái không hợp lệ");
+    }
+
+    User actor =
+        staffId == null || staffId.isBlank()
+            ? null
+            : userRepository
+                .findById(staffId)
+                .filter(u -> u.getRole() != null && u.getRole() >= 0 && u.getRole() <= 2)
+                .orElse(null);
+
     if ((status == 4 || status == 5) && order.getStatus() != 4 && order.getStatus() != 5) {
-      // trả tồn kho
+      // trả tồn kho + ghi thẻ kho
       if (order.getItems() != null) {
         for (OrderDetail detail : order.getItems()) {
           Book book = detail.getBook();
           book.setStock(book.getStock() + detail.getQuantity());
           bookRepository.save(book);
+          stockService.record(
+              book,
+              detail.getQuantity(),
+              StockService.CANCEL_RETURN,
+              "ORDER",
+              order.getId(),
+              order.getOrderCode(),
+              actor,
+              status == 4 ? "Hủy đơn - hoàn kho" : "Trả hàng - hoàn kho");
         }
       }
 
@@ -369,19 +426,21 @@ public class OrderService {
     }
 
     // nhân viên xác nhận đơn
-    if (status == 1 && order.getStaff() == null && staffId != null && !staffId.isBlank()) {
-      userRepository
-          .findById(staffId)
-          .filter(user -> user.getRole() != null && user.getRole() >= 0 && user.getRole() <= 2)
-          .ifPresent(
-              staff -> {
-                order.setStaff(staff);
-                order.setConfirmedAt(LocalDateTime.now());
-              });
+    if (status == 1 && order.getStaff() == null && actor != null) {
+      order.setStaff(actor);
+      order.setConfirmedAt(LocalDateTime.now());
     }
 
     order.setStatus(status);
+    if (!status.equals(previousStatus)) {
+      order.addHistory(previousStatus, status, actor, STATUS_NOTE.get(status));
+    }
     Order updatedOrder = orderRepository.save(order);
+
+    // bàn giao vận chuyển -> lập phiếu xuất kho bán hàng
+    if (status == 2) {
+      exportReceiptService.createForOrder(updatedOrder, actor);
+    }
     invalidateCaches();
     return convertToDTO(updatedOrder);
   }
@@ -475,7 +534,24 @@ public class OrderService {
       order.setTotal(0.0);
     }
 
+    order.addHistory(
+        null, status, null, status == 0 ? "Khách hàng đặt hàng (COD)" : "Chờ thanh toán MoMo");
     Order savedOrder = orderRepository.save(order);
+
+    // COD trừ tồn kho ngay khi đặt -> ghi thẻ kho
+    if ("cod".equalsIgnoreCase(orderDTO.getPaymethod()) && savedOrder.getItems() != null) {
+      for (OrderDetail d : savedOrder.getItems()) {
+        stockService.record(
+            d.getBook(),
+            -d.getQuantity(),
+            StockService.SALE,
+            "ORDER",
+            savedOrder.getId(),
+            savedOrder.getOrderCode(),
+            null,
+            "Bán hàng");
+      }
+    }
     invalidateCaches();
 
     return convertToDTO(savedOrder);

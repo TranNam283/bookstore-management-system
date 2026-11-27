@@ -5,9 +5,11 @@ import com.bookstore.backend.dto.search.AdvancedSearchRequest;
 import com.bookstore.backend.dto.search.SearchResponse;
 import com.bookstore.backend.service.ImportReceiptService;
 import com.bookstore.backend.utils.CurrentUserResolver;
+import java.util.Map;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -60,5 +62,16 @@ public class ImportReceiptController {
       @RequestHeader(value = "Authorization", required = false) String authHeader) {
     String staffId = currentUserResolver.resolveUserId(authHeader);
     return ResponseEntity.ok(importReceiptService.create(request, staffId));
+  }
+
+  // hủy phiếu nhập (trừ lại tồn kho)
+  @PatchMapping("/{id}/cancel")
+  public ResponseEntity<ImportReceiptDTO> cancel(
+      @PathVariable String id,
+      @RequestBody Map<String, String> body,
+      @RequestHeader(value = "Authorization", required = false) String authHeader) {
+    return ResponseEntity.ok(
+        importReceiptService.cancel(
+            id, body.get("reason"), currentUserResolver.resolveUserId(authHeader)));
   }
 }

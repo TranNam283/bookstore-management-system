@@ -51,6 +51,8 @@ class BookService_GetTest {
 
   @Mock private ImportReceiptDetailRepository importReceiptDetailRepository;
 
+  @Mock private StockService stockService;
+
   @Spy private DataCacheRegistry cacheRegistry = new DataCacheRegistry();
 
   @InjectMocks private BookService bookService;

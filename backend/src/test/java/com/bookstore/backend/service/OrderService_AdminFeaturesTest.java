@@ -53,6 +53,10 @@ class OrderService_AdminFeaturesTest {
   @Mock private CartRepository cartRepository;
   @Mock private PaymentRepository paymentRepository;
   @Mock private MomoService momoService;
+  @Mock private StockService stockService;
+
+  @Mock private ExportReceiptService exportReceiptService;
+
   @Spy private DataCacheRegistry cacheRegistry = new DataCacheRegistry();
 
   @InjectMocks private OrderService orderService;
@@ -210,5 +214,33 @@ class OrderService_AdminFeaturesTest {
     assertEquals(100_000d, detail.getSubtotal());
     assertEquals(10_000d, detail.getDiscountAmount());
     assertEquals(90_000d, detail.getLineTotal());
+  }
+
+  // Chuyển "Đang giao": lập phiếu xuất bán hàng + ghi lịch sử trạng thái
+  @Test
+  void shipping_shouldCreateExportReceiptAndHistory() {
+    Order order = order("A4", "Hà Nội", 100_000, 1);
+    User staff = User.builder().id("s1").fullname("Nhân viên A").role(1).build();
+    when(orderRepository.findById("id-A4")).thenReturn(Optional.of(order));
+    when(userRepository.findById("s1")).thenReturn(Optional.of(staff));
+    when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    OrderDTO result = orderService.updateOrderStatus("id-A4", 2, "s1");
+
+    verify(exportReceiptService).createForOrder(order, staff);
+    assertEquals(1, result.getHistory().size());
+    assertEquals(1, result.getHistory().get(0).getFromStatus());
+    assertEquals(2, result.getHistory().get(0).getToStatus());
+    assertEquals("Nhân viên A", result.getHistory().get(0).getStaffName());
+  }
+
+  // Đơn đã hủy / trả hàng thì không đổi trạng thái được nữa
+  @Test
+  void finishedOrder_cannotChangeStatus() {
+    Order order = order("A5", "Hà Nội", 100_000, 4);
+    when(orderRepository.findById("id-A5")).thenReturn(Optional.of(order));
+
+    org.junit.jupiter.api.Assertions.assertThrows(
+        IllegalStateException.class, () -> orderService.updateOrderStatus("id-A5", 1, null));
   }
 }

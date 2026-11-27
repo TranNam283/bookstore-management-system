@@ -37,10 +37,24 @@ public class ImportReceipt {
   @Column(nullable = false, unique = true, length = 15)
   private String receiptCode;
 
-  // Nhà cung cấp (nhà xuất bản)
+  // Nhà cung cấp
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "supplierId")
+  private Supplier supplier;
+
+  // Nhà xuất bản của sách trong phiếu (thông tin thêm)
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "publisherId")
   private Publisher publisher;
+
+  @Builder.Default
+  @Column(nullable = false)
+  private Integer status = 1; // 1 hoàn tất, 0 đã hủy
+
+  private LocalDateTime cancelledAt;
+
+  @Column(length = 255)
+  private String cancelReason;
 
   // Nhân viên lập phiếu
   @ManyToOne(fetch = FetchType.LAZY)

@@ -45,9 +45,14 @@ public class UserService {
     this.cacheRegistry = cacheRegistry;
   }
 
-  // thông tin người dùng thay đổi -> danh sách khách hàng, tên nhân viên trên đơn/phiếu nhập
+  // thông tin người dùng thay đổi -> danh sách khách hàng / nhân viên, tên nhân viên trên chứng từ
   private void invalidateCaches() {
-    cacheRegistry.invalidate(CacheNames.CUSTOMERS, CacheNames.ORDERS, CacheNames.IMPORT_RECEIPTS);
+    cacheRegistry.invalidate(
+        CacheNames.CUSTOMERS,
+        CacheNames.STAFF,
+        CacheNames.ORDERS,
+        CacheNames.IMPORT_RECEIPTS,
+        CacheNames.EXPORT_RECEIPTS);
   }
 
   // lấy tất cả users có role = 3 là customer

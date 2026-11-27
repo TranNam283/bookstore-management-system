@@ -11,10 +11,12 @@ import com.bookstore.backend.entities.Book;
 import com.bookstore.backend.entities.ImportReceipt;
 import com.bookstore.backend.entities.ImportReceiptDetail;
 import com.bookstore.backend.entities.Publisher;
+import com.bookstore.backend.entities.Supplier;
 import com.bookstore.backend.entities.User;
 import com.bookstore.backend.repository.BookRepository;
 import com.bookstore.backend.repository.ImportReceiptRepository;
 import com.bookstore.backend.repository.PublisherRepository;
+import com.bookstore.backend.repository.SupplierRepository;
 import com.bookstore.backend.repository.UserRepository;
 import com.bookstore.backend.utils.AdvancedFilter;
 import jakarta.persistence.EntityNotFoundException;
@@ -41,6 +43,8 @@ public class ImportReceiptService {
   private final BookRepository bookRepository;
   private final PublisherRepository publisherRepository;
   private final UserRepository userRepository;
+  private final SupplierRepository supplierRepository;
+  private final StockService stockService;
   private final DataCacheRegistry cacheRegistry;
   private final ListCache<ImportReceiptDTO> receiptCache;
   private final AdvancedFilter<ImportReceiptDTO> receiptFilter = buildFilter();
@@ -51,11 +55,15 @@ public class ImportReceiptService {
       BookRepository bookRepository,
       PublisherRepository publisherRepository,
       UserRepository userRepository,
+      SupplierRepository supplierRepository,
+      StockService stockService,
       DataCacheRegistry cacheRegistry) {
     this.importReceiptRepository = importReceiptRepository;
     this.bookRepository = bookRepository;
     this.publisherRepository = publisherRepository;
     this.userRepository = userRepository;
+    this.supplierRepository = supplierRepository;
+    this.stockService = stockService;
     this.cacheRegistry = cacheRegistry;
     this.receiptCache =
         cacheRegistry.register(CacheNames.IMPORT_RECEIPTS, this::loadReceiptsFromDatabase);
@@ -81,6 +89,11 @@ public class ImportReceiptService {
     return ImportReceiptDTO.builder()
         .id(receipt.getId())
         .receiptCode(receipt.getReceiptCode())
+        .supplierId(receipt.getSupplier() != null ? receipt.getSupplier().getId() : null)
+        .supplierName(receipt.getSupplier() != null ? receipt.getSupplier().getName() : null)
+        .status(receipt.getStatus())
+        .cancelledAt(receipt.getCancelledAt())
+        .cancelReason(receipt.getCancelReason())
         .publisherId(receipt.getPublisher() != null ? receipt.getPublisher().getId() : null)
         .publisherName(receipt.getPublisher() != null ? receipt.getPublisher().getName() : null)
         .staffId(receipt.getStaff() != null ? receipt.getStaff().getId() : null)
@@ -123,6 +136,9 @@ public class ImportReceiptService {
   private static AdvancedFilter<ImportReceiptDTO> buildFilter() {
     return new AdvancedFilter<ImportReceiptDTO>()
         .text("receiptCode", ImportReceiptDTO::getReceiptCode)
+        .text("supplierId", ImportReceiptDTO::getSupplierId)
+        .text("supplierName", ImportReceiptDTO::getSupplierName)
+        .number("status", ImportReceiptDTO::getStatus)
         .text("publisherId", ImportReceiptDTO::getPublisherId)
         .text("publisherName", ImportReceiptDTO::getPublisherName)
         .text("staffId", ImportReceiptDTO::getStaffId)
@@ -149,9 +165,13 @@ public class ImportReceiptService {
         getCachedReceipts(),
         request,
         "createdAt",
-        receipts -> {
+        all -> {
+          // tổng chỉ tính phiếu còn hiệu lực (chưa hủy)
+          List<ImportReceiptDTO> receipts =
+              all.stream().filter(r -> r.getStatus() == null || r.getStatus() == 1).toList();
           Map<String, Object> summary = new LinkedHashMap<>();
-          summary.put("count", receipts.size());
+          summary.put("count", all.size());
+          summary.put("cancelledCount", all.size() - receipts.size());
           summary.put(
               "totalQuantity",
               receipts.stream()
@@ -187,6 +207,17 @@ public class ImportReceiptService {
       throw new IllegalArgumentException("Phiếu nhập phải có ít nhất một sách");
     }
 
+    if (request.getSupplierId() == null || request.getSupplierId().isBlank()) {
+      throw new IllegalArgumentException("Vui lòng chọn nhà cung cấp");
+    }
+    Supplier supplier =
+        supplierRepository
+            .findById(request.getSupplierId())
+            .orElseThrow(() -> new EntityNotFoundException("Nhà cung cấp không tìm thấy"));
+    if (supplier.getStatus() != null && supplier.getStatus() == 0) {
+      throw new IllegalArgumentException("Nhà cung cấp đã ngừng hợp tác");
+    }
+
     Publisher publisher = null;
     if (request.getPublisherId() != null && !request.getPublisherId().isBlank()) {
       publisher =
@@ -207,6 +238,7 @@ public class ImportReceiptService {
     ImportReceipt receipt =
         ImportReceipt.builder()
             .receiptCode(generateReceiptCode())
+            .supplier(supplier)
             .publisher(publisher)
             .staff(staff)
             .note(request.getNote() != null ? request.getNote().trim() : null)
@@ -250,7 +282,77 @@ public class ImportReceiptService {
     receipt.recalculateTotals();
     ImportReceipt saved = importReceiptRepository.save(receipt);
 
-    cacheRegistry.invalidate(CacheNames.IMPORT_RECEIPTS, CacheNames.BOOKS);
+    // thẻ kho
+    for (ImportReceiptDetail d : saved.getItems()) {
+      stockService.record(
+          d.getBook(),
+          d.getQuantity(),
+          StockService.IMPORT,
+          "IMPORT",
+          saved.getId(),
+          saved.getReceiptCode(),
+          staff,
+          "Nhập hàng từ " + supplier.getName());
+    }
+
+    cacheRegistry.invalidate(CacheNames.IMPORT_RECEIPTS, CacheNames.BOOKS, CacheNames.SUPPLIERS);
+    return convertToDTO(saved);
+  }
+
+  /**
+   * Hủy phiếu nhập (nhập sai): trừ lại tồn kho các sách trong phiếu. Không hủy được nếu số sách đó
+   * đã bán bớt và tồn kho không còn đủ.
+   */
+  @Transactional
+  public ImportReceiptDTO cancel(String id, String reason, String staffId) {
+    ImportReceipt receipt =
+        importReceiptRepository
+            .findById(id)
+            .orElseThrow(() -> new EntityNotFoundException("Phiếu nhập không tìm thấy"));
+    if (receipt.getStatus() != null && receipt.getStatus() == 0) {
+      throw new IllegalStateException("Phiếu nhập đã bị hủy trước đó");
+    }
+    if (reason == null || reason.isBlank()) {
+      throw new IllegalArgumentException("Vui lòng nhập lý do hủy phiếu");
+    }
+    for (ImportReceiptDetail d : receipt.getItems()) {
+      if (d.getBook().getStock() < d.getQuantity()) {
+        throw new IllegalStateException(
+            "Không thể hủy: "
+                + d.getBook().getTitle()
+                + " chỉ còn "
+                + d.getBook().getStock()
+                + " cuốn (phiếu nhập "
+                + d.getQuantity()
+                + ")");
+      }
+    }
+    User staff =
+        staffId == null
+            ? null
+            : userRepository
+                .findById(staffId)
+                .filter(u -> u.getRole() != null && u.getRole() >= 0 && u.getRole() <= 2)
+                .orElse(null);
+    for (ImportReceiptDetail d : receipt.getItems()) {
+      Book book = d.getBook();
+      book.setStock(book.getStock() - d.getQuantity());
+      bookRepository.save(book);
+      stockService.record(
+          book,
+          -d.getQuantity(),
+          StockService.IMPORT_CANCEL,
+          "IMPORT",
+          receipt.getId(),
+          receipt.getReceiptCode(),
+          staff,
+          "Hủy phiếu nhập: " + reason.trim());
+    }
+    receipt.setStatus(0);
+    receipt.setCancelledAt(LocalDateTime.now());
+    receipt.setCancelReason(reason.trim());
+    ImportReceipt saved = importReceiptRepository.save(receipt);
+    cacheRegistry.invalidate(CacheNames.IMPORT_RECEIPTS, CacheNames.BOOKS, CacheNames.SUPPLIERS);
     return convertToDTO(saved);
   }
 
