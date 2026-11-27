@@ -19,6 +19,7 @@ import com.bookstore.backend.entities.User;
 import com.bookstore.backend.repository.BookRepository;
 import com.bookstore.backend.repository.ImportReceiptRepository;
 import com.bookstore.backend.repository.PublisherRepository;
+import com.bookstore.backend.repository.SupplierRepository;
 import com.bookstore.backend.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import java.util.List;
@@ -42,6 +43,10 @@ class ImportReceiptServiceTest {
   @Mock private BookRepository bookRepository;
   @Mock private PublisherRepository publisherRepository;
   @Mock private UserRepository userRepository;
+  @Mock private SupplierRepository supplierRepository;
+
+  @Mock private StockService stockService;
+
   @Spy private DataCacheRegistry cacheRegistry = new DataCacheRegistry();
 
   @InjectMocks private ImportReceiptService importReceiptService;
@@ -56,6 +61,15 @@ class ImportReceiptServiceTest {
     when(bookRepository.findById("b1")).thenReturn(Optional.of(book1));
     when(bookRepository.findById("b2")).thenReturn(Optional.of(book2));
     when(importReceiptRepository.existsByReceiptCode(anyString())).thenReturn(false);
+    when(supplierRepository.findById("sup1"))
+        .thenReturn(
+            Optional.of(
+                com.bookstore.backend.entities.Supplier.builder()
+                    .id("sup1")
+                    .code("NCC001")
+                    .name("Fahasa")
+                    .status(1)
+                    .build()));
     when(importReceiptRepository.save(any(ImportReceipt.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
   }
@@ -74,6 +88,7 @@ class ImportReceiptServiceTest {
 
     ImportReceiptDTO request =
         ImportReceiptDTO.builder()
+            .supplierId("sup1")
             .publisherId("p1")
             .note(" nhập đầu tháng ")
             .items(List.of(line("b1", 10, 60_000d), line("b2", 5, 50_000d)))
@@ -98,22 +113,32 @@ class ImportReceiptServiceTest {
     assertThrows(
         IllegalArgumentException.class,
         () ->
-            importReceiptService.create(ImportReceiptDTO.builder().items(List.of()).build(), null));
-    assertThrows(
-        IllegalArgumentException.class,
-        () ->
             importReceiptService.create(
-                ImportReceiptDTO.builder().items(List.of(line("b1", 0, 1000d))).build(), null));
-    assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            importReceiptService.create(
-                ImportReceiptDTO.builder().items(List.of(line("b1", 1, -1d))).build(), null));
+                ImportReceiptDTO.builder().supplierId("sup1").items(List.of()).build(), null));
     assertThrows(
         IllegalArgumentException.class,
         () ->
             importReceiptService.create(
                 ImportReceiptDTO.builder()
+                    .supplierId("sup1")
+                    .items(List.of(line("b1", 0, 1000d)))
+                    .build(),
+                null));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            importReceiptService.create(
+                ImportReceiptDTO.builder()
+                    .supplierId("sup1")
+                    .items(List.of(line("b1", 1, -1d)))
+                    .build(),
+                null));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            importReceiptService.create(
+                ImportReceiptDTO.builder()
+                    .supplierId("sup1")
                     .items(List.of(line("b1", 1, 1000d), line("b1", 2, 1000d)))
                     .build(),
                 null));
@@ -127,7 +152,11 @@ class ImportReceiptServiceTest {
         EntityNotFoundException.class,
         () ->
             importReceiptService.create(
-                ImportReceiptDTO.builder().items(List.of(line("x", 1, 1000d))).build(), null));
+                ImportReceiptDTO.builder()
+                    .supplierId("sup1")
+                    .items(List.of(line("x", 1, 1000d)))
+                    .build(),
+                null));
   }
 
   // Danh sách phiếu nhập được đọc từ database một lần rồi dùng lại trên RAM
@@ -139,5 +168,65 @@ class ImportReceiptServiceTest {
     importReceiptService.search(new AdvancedSearchRequest());
 
     verify(importReceiptRepository, times(1)).findAll(any(Sort.class));
+  }
+
+  // Hủy phiếu nhập: trừ lại tồn kho, ghi thẻ kho, chuyển trạng thái
+  @Test
+  void cancel_shouldReverseStock() {
+    ImportReceipt receipt =
+        ImportReceipt.builder().id("r1").receiptCode("PN000001").status(1).build();
+    receipt
+        .getItems()
+        .add(
+            com.bookstore.backend.entities.ImportReceiptDetail.builder()
+                .receipt(receipt)
+                .book(book1)
+                .quantity(3)
+                .importPrice(50_000d)
+                .build());
+    when(importReceiptRepository.findById("r1")).thenReturn(Optional.of(receipt));
+
+    ImportReceiptDTO result = importReceiptService.cancel("r1", "Nhập nhầm", null);
+
+    assertEquals(2, book1.getStock());
+    assertEquals(0, result.getStatus());
+    assertEquals("Nhập nhầm", result.getCancelReason());
+    verify(stockService)
+        .record(
+            org.mockito.ArgumentMatchers.eq(book1),
+            org.mockito.ArgumentMatchers.eq(-3),
+            org.mockito.ArgumentMatchers.eq(StockService.IMPORT_CANCEL),
+            any(),
+            any(),
+            any(),
+            any(),
+            any());
+  }
+
+  @Test
+  void cancel_shouldFailWhenStockAlreadySold() {
+    ImportReceipt receipt =
+        ImportReceipt.builder().id("r2").receiptCode("PN000002").status(1).build();
+    receipt
+        .getItems()
+        .add(
+            com.bookstore.backend.entities.ImportReceiptDetail.builder()
+                .receipt(receipt)
+                .book(book1)
+                .quantity(50)
+                .importPrice(50_000d)
+                .build());
+    when(importReceiptRepository.findById("r2")).thenReturn(Optional.of(receipt));
+
+    assertThrows(
+        IllegalStateException.class, () -> importReceiptService.cancel("r2", "Nhập nhầm", null));
+    assertEquals(5, book1.getStock());
+  }
+
+  @Test
+  void create_shouldRequireSupplier() {
+    ImportReceiptDTO request =
+        ImportReceiptDTO.builder().items(List.of(line("b1", 1, 1000d))).build();
+    assertThrows(IllegalArgumentException.class, () -> importReceiptService.create(request, null));
   }
 }

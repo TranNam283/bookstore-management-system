@@ -14,6 +14,11 @@ import lombok.NoArgsConstructor;
 public class ImportReceiptDTO {
   private String id;
   private String receiptCode;
+  private String supplierId;
+  private String supplierName;
+  private Integer status; // 1 hoàn tất, 0 đã hủy
+  private LocalDateTime cancelledAt;
+  private String cancelReason;
   private String publisherId;
   private String publisherName;
   private String staffId;

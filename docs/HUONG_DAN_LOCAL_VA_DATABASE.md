@@ -1,5 +1,16 @@
 # Hướng dẫn chạy local, quản lý database và demo đồ án
 
+## Chạy nhanh mỗi ngày (đã cài đặt xong)
+
+Mở PowerShell tại thư mục dự án và chạy:
+
+```powershell
+cd D:\Downloads\bookstore-ecommerce
+powershell -ExecutionPolicy Bypass -File .\chay-local.ps1
+```
+
+Script kiểm tra MySQL, rồi mở 2 cửa sổ **BACKEND** (cổng 8082) và **FRONTEND** (cổng 5173). Đợi 30–60 giây rồi vào http://localhost:5173/admin/login. Muốn tắt thì bấm `Ctrl + C` hoặc đóng hai cửa sổ đó. Các mục bên dưới dành cho lần cài đặt đầu tiên hoặc khi cần làm thủ công.
+
 ## 1. Yêu cầu cài đặt
 
 | Phần mềm | Phiên bản | Ghi chú |
@@ -29,12 +40,21 @@ mysql -u root -p -e "CREATE DATABASE bookstore_dev CHARACTER SET utf8mb4 COLLATE
 mysql -u root -p bookstore_dev -e "source D:/Downloads/bookstore-ecommerce/db/db.sql"
 ```
 
-**Database cũ (trước khi nâng cấp)** – chạy lần lượt 2 file migration, mỗi file một lần:
+**Database cũ (trước khi nâng cấp)** – chạy lần lượt các file migration còn thiếu, mỗi file một lần:
 
 ```powershell
 mysql -u root -p bookstore_dev -e "source D:/Downloads/bookstore-ecommerce/db/migrations/V2__thanh_tien_nhan_vien_phieu_nhap.sql"
 mysql -u root -p bookstore_dev -e "source D:/Downloads/bookstore-ecommerce/db/migrations/V3__du_lieu_mau_thong_ke.sql"
+mysql -u root -p bookstore_dev -e "source D:/Downloads/bookstore-ecommerce/db/migrations/V4__kho_hang_nha_cung_cap_lich_su.sql"
+mysql -u root -p bookstore_dev -e "source D:/Downloads/bookstore-ecommerce/db/migrations/V5__vai_tro_nhan_vien.sql"
 ```
+
+| File | Nội dung |
+|---|---|
+| V2 | Thành tiền từng dòng hóa đơn, nhân viên xác nhận đơn, phiếu nhập, view thống kê |
+| V3 | Dữ liệu mẫu (227 đơn 01/2025 – 11/2026, 34 phiếu nhập, nhân viên, khách hàng) |
+| V4 | Nhà cung cấp, phiếu xuất kho, thẻ kho (`stock_movement`), lịch sử trạng thái hóa đơn, hủy phiếu nhập |
+| V5 | Vai trò nhân viên (0 quản trị, 1 bán hàng, 2 kho), thêm tài khoản quản trị và nhân viên kho để demo |
 
 > PowerShell không hỗ trợ `mysql ... < file.sql`, vì vậy dùng `-e "source đường/dẫn.sql"` (đường dẫn dùng dấu `/`).
 
@@ -89,15 +109,21 @@ mysql -u root -p bookstore_dev -e "source D:/Downloads/bookstore-ecommerce/db/mi
 
 ### 2.4. Tài khoản demo
 
-| Vai trò | Email | Mật khẩu |
+| Vai trò (`user.role`) | Email | Mật khẩu |
 |---|---|---|
-| Nhân viên bán hàng | `lan.nguyen@bookstore.vn` | `123456` |
-| Nhân viên bán hàng | `minh.tran@bookstore.vn` | `123456` |
-| Nhân viên bán hàng | `hoa.le@bookstore.vn` | `123456` |
-| Khách hàng (20 tài khoản mẫu) | ví dụ `minhanh.pham01@gmail.com` | `123456` |
-| Quản trị hệ thống | `admin456@gmail.com` (tài khoản có sẵn) | mật khẩu cũ của nhóm |
+| 0 – Quản trị viên hệ thống | `quanly@bookstore.vn` | `123456` |
+| 1 – Nhân viên bán hàng | `lan.nguyen@bookstore.vn`, `minh.tran@bookstore.vn`, `hoa.le@bookstore.vn` | `123456` |
+| 2 – Nhân viên kho | `kho.pham@bookstore.vn` | `123456` |
+| 3 – Khách hàng (20 tài khoản mẫu) | ví dụ `minhanh.pham01@gmail.com` | `123456` |
+| 0 – Quản trị viên (tài khoản cũ của nhóm) | `admin456@gmail.com` | mật khẩu cũ của nhóm |
 
-Trang *Khách hàng* và *Quản trị viên* chỉ mở được bằng tài khoản quản trị hệ thống (role 0).
+Phân quyền trang quản trị:
+
+| Chức năng | Quản trị viên (0) | Bán hàng (1) / Kho (2) |
+|---|---|---|
+| Xem danh sách + hồ sơ nhân viên, khách hàng | ✔ | ✔ (chỉ đọc) |
+| Thêm / sửa / khóa / xóa nhân viên, khách hàng | ✔ | ✘ – hiện trang “Bạn không có quyền” |
+| Các chức năng còn lại (hóa đơn, kho, sách, thống kê) | ✔ | ✔ |
 
 ## 3. Chạy bằng Docker (tùy chọn)
 
@@ -142,7 +168,13 @@ Các bảng/cột quan trọng để giải thích:
 | | `staff_id`, `confirmed_at` | nhân viên xác nhận đơn (thống kê theo nhân viên) |
 | `import_receipt` | `total_amount` | tổng tiền phiếu nhập = **tổng chi** |
 | `import_receipt_detail` | `quantity`, `import_price`, `line_total` | từng sách nhập |
-| View `vw_quarter_revenue`, `vw_staff_revenue`, `vw_monthly_profit`, … | | thống kê viết sẵn bằng SQL để đối chiếu |
+| `supplier` | `code`, `name`, `status` | nhà cung cấp; phiếu nhập bắt buộc chọn nhà cung cấp đang hợp tác |
+| `import_receipt` | `supplier_id`, `status`, `cancel_reason` | phiếu nhập gắn nhà cung cấp; hủy phiếu thì trừ lại tồn kho |
+| `export_receipt` | `type` | SALE (xuất bán theo hóa đơn), DAMAGED, RETURN_SUPPLIER, OTHER |
+| `export_receipt_detail` | `quantity`, `unit_price`, `line_total` | từng sách xuất |
+| `stock_movement` | `type`, `quantity_change`, `stock_after`, `ref_code` | **thẻ kho**: mỗi lần tồn kho thay đổi (nhập, bán, hủy/trả, xuất, điều chỉnh) |
+| `order_status_history` | `from_status`, `to_status`, `staff_id` | lịch sử xử lý hóa đơn: ai đổi trạng thái, lúc nào |
+| View `vw_quarter_revenue`, `vw_staff_revenue`, `vw_monthly_profit`, `vw_inventory`, … | | thống kê viết sẵn bằng SQL để đối chiếu |
 
 ### 4.3. Khi giảng viên yêu cầu viết query
 
@@ -160,11 +192,22 @@ Các bảng/cột quan trọng để giải thích:
 | Tìm kiếm nâng cao >, <, =, ≥, ≤ + AND/OR | Khung **Tìm kiếm nâng cao** ở trang Đơn hàng, Sách, Khách hàng, Phiếu nhập (nhóm nối bằng AND, trong nhóm chọn AND/OR); có nút mẫu *"(1tr–2tr) AND (HCM OR HN)"* |
 | Giao diện tập trung dữ liệu | Bảng gọn, nhiều dòng (20/50/100), cột số căn phải, dòng tổng cuối bảng, bấm tiêu đề cột để sắp xếp |
 | Main–sub form hóa đơn | Trang **Đơn hàng**: danh sách bên trái, chi tiết bên phải; phím ↑/↓ để chuyển đơn; đổi trạng thái ngay tại chỗ. Trang **Phiếu nhập** cùng bố cục |
-| Thống kê theo thời gian (ngày/tháng/quý/năm) | **Báo cáo thống kê → Tổng tiền hóa đơn theo thời gian** (đánh dấu kỳ bán tốt nhất) |
+| Thống kê theo thời gian (ngày/tuần/tháng/quý/năm) | **Báo cáo thống kê → Tổng tiền hóa đơn theo thời gian** (đánh dấu kỳ bán tốt nhất) |
+| Doanh thu 12 tháng gần nhất | **Tổng quan**: trục ghi rõ tháng + năm (T12 / 2025 …), vạch chia năm, tổng từng năm |
+| Top bán chạy | **Tổng quan → Top bán chạy**: lọc theo Ngày / Tuần / Tháng / Quý / Năm, nút ◀ ▶ chuyển kỳ, so với kỳ trước, cảnh báo tồn kho; xếp hạng thể loại bên cạnh |
+| Mặt hàng & thể loại bán chạy theo từng thời điểm | **Báo cáo thống kê → Hàng bán chạy theo kỳ**: mỗi tháng / quý / năm một bảng xếp hạng sách + thể loại (bấm 1 kỳ để xem) |
+| Biết trước mùa nào bán gì để nhập hàng | **Báo cáo thống kê → Mùa vụ & gợi ý nhập hàng**: cùng một quý (hoặc tháng) qua các năm, dự báo số cuốn bán, tồn kho, **đề xuất số lượng nhập** |
 | Tổng thu – tổng chi – lợi nhuận | **Báo cáo thống kê → Thu – Chi – Lợi nhuận** |
 | Theo nhân viên | **Báo cáo thống kê → Theo nhân viên** (nhân viên xác nhận đơn) |
 | Lưu thành tiền từng dòng | Bảng `orderdetail` (`subtotal`, `discount_amount`, `line_total`) |
 | Biểu đồ | Recharts trong trang Báo cáo thống kê và Tổng quan |
+| Quản lý nhập hàng | **Kho hàng → Nhập hàng**: phiếu nhập theo nhà cung cấp, chi tiết từng sách, hủy phiếu (trừ lại tồn kho) |
+| Quản lý xuất hàng | **Kho hàng → Xuất hàng**: phiếu xuất bán tự lập khi hóa đơn chuyển “Đang giao”; lập phiếu xuất hư hỏng / trả nhà cung cấp / khác |
+| Tồn kho | **Kho hàng → Tồn kho & thẻ kho**: tồn từng sách, cảnh báo sắp hết, thẻ kho chi tiết; tab **Báo cáo nhập – xuất – tồn** theo khoảng ngày, xuất Excel (CSV) |
+| Nhà cung cấp | **Kho hàng → Nhà cung cấp**: thêm / sửa / ngừng hợp tác, số phiếu và tổng tiền đã nhập |
+| Hóa đơn chi tiết | Trang **Hóa đơn**: từng món (SL × đơn giá − giảm = thành tiền), phiếu xuất kho, **lịch sử xử lý**, nút **In hóa đơn** |
+| Khách hàng | Trang **Khách hàng**: tổng số khách, đang hoạt động / bị chặn, khách mới; mỗi khách có SĐT, địa chỉ, ngày tạo tài khoản, tổng đơn, đơn thành công / hủy, tổng chi tiêu. Bấm 1 khách → từng hóa đơn đã mua (bấm hóa đơn xem từng món) và **nhân viên xử lý hóa đơn** |
+| Nhân viên | Trang **Nhân viên**: tổng nhân sự, số người theo **vai trò**; mỗi nhân viên có số hóa đơn xử lý, doanh thu, phiếu nhập / xuất. Bấm 1 nhân viên → hóa đơn đã xử lý, phiếu nhập, phiếu xuất |
 
 **Chứng minh cache khi demo:** bật log SQL (`spring.jpa.show-sql=true` đang bật sẵn), tìm kiếm/thống kê nhiều lần → console backend không in thêm câu `select ... from orders`; bấm **Làm mới dữ liệu** hoặc đổi trạng thái đơn → in lại đúng một lượt.
 
@@ -173,7 +216,7 @@ Các bảng/cột quan trọng để giải thích:
 ## 6. Kiểm thử
 
 ```powershell
-cd backend;  .\mvnw.cmd spotless:apply; .\mvnw.cmd test     # 425 test
+cd backend;  .\mvnw.cmd spotless:apply; .\mvnw.cmd test     # 447 test
 cd frontend; npm run lint; npm run build
 ```
 

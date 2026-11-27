@@ -105,6 +105,7 @@ function AddAdmin() {
                 <option value="">Chọn chức vụ</option>
                 <option value="0">Quản trị viên hệ thống</option>
                 <option value="1">Nhân viên bán hàng</option>
+                <option value="2">Nhân viên kho</option>
               </select>
             </div>
 

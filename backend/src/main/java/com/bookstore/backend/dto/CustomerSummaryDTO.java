@@ -16,11 +16,15 @@ public class CustomerSummaryDTO {
   private String id;
   private String fullname;
   private String email;
+  private String phone; // số điện thoại (sổ địa chỉ hoặc đơn gần nhất)
+  private String address; // địa chỉ đầu tiên trong sổ địa chỉ
   private Integer status;
   private LocalDateTime createdAt;
   private List<String> cities; // các thành phố trong sổ địa chỉ / đơn hàng
   private long orderCount; // tổng số đơn (không tính đơn chờ thanh toán)
   private long deliveredCount; // số đơn giao thành công
+  private long cancelledCount; // số đơn bị hủy / trả hàng
   private double totalSpent; // tổng tiền các đơn giao thành công
+  private LocalDateTime firstOrderAt;
   private LocalDateTime lastOrderAt;
 }

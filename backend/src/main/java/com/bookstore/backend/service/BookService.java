@@ -55,6 +55,7 @@ public class BookService {
   private final CategoryRepository categoryRepository;
   private final ImportReceiptDetailRepository importReceiptDetailRepository;
   private final DataCacheRegistry cacheRegistry;
+  private final StockService stockService;
 
   // Danh sách sách trên RAM (phiên 15 phút) dùng cho trang quản trị & tìm kiếm nâng cao
   private final ListCache<BookDTO> bookCache;
@@ -67,7 +68,8 @@ public class BookService {
       CartItemRepository cartItemRepository,
       CategoryRepository categoryRepository,
       ImportReceiptDetailRepository importReceiptDetailRepository,
-      DataCacheRegistry cacheRegistry) {
+      DataCacheRegistry cacheRegistry,
+      StockService stockService) {
     this.bookRepository = bookRepository;
     this.imageBookRepository = imageBookRepository;
     this.orderDetailRepository = orderDetailRepository;
@@ -75,6 +77,7 @@ public class BookService {
     this.categoryRepository = categoryRepository;
     this.importReceiptDetailRepository = importReceiptDetailRepository;
     this.cacheRegistry = cacheRegistry;
+    this.stockService = stockService;
     this.bookCache = cacheRegistry.register(CacheNames.BOOKS, this::loadBooksFromDatabase);
   }
 
@@ -571,6 +574,17 @@ public class BookService {
     }
 
     Book savedBook = bookRepository.save(book);
+    if (savedBook.getStock() != null && savedBook.getStock() > 0) {
+      stockService.record(
+          savedBook,
+          savedBook.getStock(),
+          StockService.OPENING,
+          "BOOK",
+          savedBook.getId(),
+          null,
+          null,
+          "Tồn đầu khi thêm sách");
+    }
     String id = savedBook.getId();
 
     if (files != null && !files.isEmpty()) {
@@ -690,6 +704,7 @@ public class BookService {
     existingBook.setWidth(updatedBookData.getWidth());
     existingBook.setLength(updatedBookData.getLength());
     existingBook.setThickness(updatedBookData.getThickness());
+    int oldStock = existingBook.getStock() == null ? 0 : existingBook.getStock();
     existingBook.setStock(updatedBookData.getStock());
     existingBook.setStatus(updatedBookData.getStatus());
 
@@ -703,6 +718,18 @@ public class BookService {
     existingBook.setSlug(newSlug);
 
     Book updatedBook = bookRepository.save(existingBook);
+    int newStock = existingBook.getStock() == null ? 0 : existingBook.getStock();
+    if (newStock != oldStock) {
+      stockService.record(
+          existingBook,
+          newStock - oldStock,
+          StockService.ADJUST,
+          "BOOK",
+          existingBook.getId(),
+          null,
+          null,
+          "Điều chỉnh tồn kho khi sửa thông tin sách");
+    }
 
     if (files != null && !files.isEmpty()) {
       String uploadRoot =

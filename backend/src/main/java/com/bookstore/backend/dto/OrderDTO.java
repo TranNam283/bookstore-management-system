@@ -31,4 +31,6 @@ public class OrderDTO {
   private String accountEmail;
   private LocalDateTime createdAt;
   private List<OrderDetailDTO> items;
+  private List<OrderStatusHistoryDTO> history; // lịch sử trạng thái
+  private String exportReceiptCode; // phiếu xuất kho bán hàng
 }

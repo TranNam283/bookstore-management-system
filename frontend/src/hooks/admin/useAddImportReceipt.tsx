@@ -5,6 +5,7 @@ import type { ImportReceipt } from "../../types/type";
 import { adminAuthHeader } from "../../utils/adminAuth";
 
 type Payload = {
+  supplierId: string;
   publisherId?: string;
   note?: string;
   items: { bookId: string; quantity: number; importPrice: number }[];

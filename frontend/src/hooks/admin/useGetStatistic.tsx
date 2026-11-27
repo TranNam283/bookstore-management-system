@@ -6,7 +6,7 @@ interface ResponseType {
   todayRevenue: number;
   totalSoldQuantity: number;
   todaySoldQuantity: number;
-  monthlyRevenue: { month: string; revenue: number }[];
+  monthlyRevenue: { month: string; label?: string; orderCount?: number; revenue: number }[];
   totalImportCost?: number;
   totalProfit?: number;
   deliveredOrderCount?: number;

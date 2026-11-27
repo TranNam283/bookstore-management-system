@@ -55,6 +55,7 @@ public class MomoService {
   private final BookRepository bookRepository;
   private final PaymentRepository paymentRepository;
   private final DataCacheRegistry cacheRegistry;
+  private final StockService stockService;
   private final RestTemplate restTemplate = new RestTemplate();
 
   public MomoService(
@@ -62,12 +63,14 @@ public class MomoService {
       CartRepository cartRepository,
       BookRepository bookRepository,
       PaymentRepository paymentRepository,
-      DataCacheRegistry cacheRegistry) {
+      DataCacheRegistry cacheRegistry,
+      StockService stockService) {
     this.orderRepository = orderRepository;
     this.cartRepository = cartRepository;
     this.bookRepository = bookRepository;
     this.paymentRepository = paymentRepository;
     this.cacheRegistry = cacheRegistry;
+    this.stockService = stockService;
   }
 
   public MomoResponse createPayment(OrderDTO orderDTO) throws Exception {
@@ -152,7 +155,19 @@ public class MomoService {
         bookRepository.save(book);
       }
       order.setStatus(0);
+      order.addHistory(-1, 0, null, "Thanh toán MoMo thành công");
       orderRepository.save(order);
+      for (OrderDetail detail : order.getItems()) {
+        stockService.record(
+            detail.getBook(),
+            -detail.getQuantity(),
+            StockService.SALE,
+            "ORDER",
+            order.getId(),
+            order.getOrderCode(),
+            null,
+            "Bán hàng (MoMo)");
+      }
       cacheRegistry.invalidate(CacheNames.ORDERS, CacheNames.BOOKS);
 
       paymentRepository.save(

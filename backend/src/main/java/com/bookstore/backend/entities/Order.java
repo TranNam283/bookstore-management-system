@@ -10,8 +10,11 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -89,6 +92,32 @@ public class Order {
 
   @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
   private List<Payment> payments;
+
+  // Lịch sử chuyển trạng thái
+  @Builder.Default
+  @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+  @OrderBy("createdAt ASC")
+  private List<OrderStatusHistory> history = new ArrayList<>();
+
+  // Phiếu xuất kho bán hàng (tạo khi đơn chuyển sang Đang giao)
+  @OneToOne(mappedBy = "order", fetch = FetchType.LAZY)
+  private ExportReceipt exportReceipt;
+
+  /** Ghi một dòng lịch sử trạng thái. */
+  public void addHistory(Integer from, Integer to, User staff, String note) {
+    if (history == null) {
+      history = new ArrayList<>();
+    }
+    history.add(
+        OrderStatusHistory.builder()
+            .order(this)
+            .fromStatus(from)
+            .toStatus(to)
+            .staff(staff)
+            .note(note)
+            .createdAt(LocalDateTime.now())
+            .build());
+  }
 
   /** Tính lại các tổng tiền của hóa đơn từ các dòng chi tiết. */
   public void recalculateTotals() {

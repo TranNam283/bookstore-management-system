@@ -19,6 +19,7 @@ import useStatistics, {
   type StaffRow,
 } from "../../../hooks/admin/useStatistics";
 import Loading from "../../Loading";
+import { BestsellerTab, SeasonalTab } from "./BestsellerTabs";
 import { formatMoney, formatNumber, formatShortMoney, toISODate } from "../../../utils/format";
 
 // Bảng màu phân loại (thứ tự cố định, đã kiểm định cho người mù màu)
@@ -31,10 +32,13 @@ const TABS = [
   { key: "revenue", label: "Tổng tiền hóa đơn theo thời gian" },
   { key: "profit", label: "Thu – Chi – Lợi nhuận" },
   { key: "staff", label: "Theo nhân viên" },
+  { key: "bestseller", label: "Hàng bán chạy theo kỳ" },
+  { key: "seasonal", label: "Mùa vụ & gợi ý nhập hàng" },
 ] as const;
 
 const GROUPS: { value: GroupBy; label: string }[] = [
   { value: "day", label: "Ngày" },
+  { value: "week", label: "Tuần" },
   { value: "month", label: "Tháng" },
   { value: "quarter", label: "Quý" },
   { value: "year", label: "Năm" },
@@ -84,7 +88,8 @@ function Statistics() {
         ))}
       </div>
 
-      {/* Bộ lọc: một hàng phía trên biểu đồ */}
+      {/* Bộ lọc: một hàng phía trên biểu đồ (tab mùa vụ có bộ chọn riêng) */}
+      {tab !== "seasonal" && (
       <div className="bg-white border border-gray-300 px-2 py-1.5 flex flex-wrap items-center gap-2">
         <label className="flex items-center gap-1">
           Từ ngày
@@ -125,10 +130,13 @@ function Statistics() {
           Tháng này theo ngày
         </button>
       </div>
+      )}
 
       {tab === "revenue" && <RevenueTab from={from} to={to} groupBy={groupBy} />}
       {tab === "profit" && <ProfitTab from={from} to={to} groupBy={groupBy} />}
       {tab === "staff" && <StaffTab from={from} to={to} />}
+      {tab === "bestseller" && <BestsellerTab from={from} to={to} groupBy={groupBy} />}
+      {tab === "seasonal" && <SeasonalTab />}
     </div>
   );
 }

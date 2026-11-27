@@ -4,8 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.when;
 
+import com.bookstore.backend.dto.BookDTO;
+import com.bookstore.backend.dto.CategoryDTO;
 import com.bookstore.backend.dto.ImportReceiptDTO;
 import com.bookstore.backend.dto.OrderDTO;
+import com.bookstore.backend.dto.OrderDetailDTO;
 import com.bookstore.backend.service.StatisticsService.GroupBy;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -26,6 +29,7 @@ class StatisticsServiceTest {
 
   @Mock private OrderService orderService;
   @Mock private ImportReceiptService importReceiptService;
+  @Mock private BookService bookService;
 
   @InjectMocks private StatisticsService statisticsService;
 
@@ -159,9 +163,195 @@ class StatisticsServiceTest {
     assertEquals(12, ((List<?>) overview.get("monthlyRevenue")).size());
   }
 
+  // ------------------------------------------------------------ hàng bán chạy
+
+  private static BookDTO book(String id, String title, String category, int stock) {
+    BookDTO book = new BookDTO();
+    book.setId(id);
+    book.setTitle(title);
+    book.setPrice(100_000);
+    book.setStock(stock);
+    CategoryDTO c = new CategoryDTO();
+    c.setName(category);
+    book.setCategory(c);
+    return book;
+  }
+
+  private static OrderDetailDTO line(String bookId, int qty) {
+    return OrderDetailDTO.builder()
+        .bookId(bookId)
+        .title("t-" + bookId)
+        .quantity(qty)
+        .lineTotal(qty * 100_000d)
+        .build();
+  }
+
+  private static OrderDTO sale(String code, int status, LocalDate date, OrderDetailDTO... items) {
+    return OrderDTO.builder()
+        .id(code)
+        .orderCode(code)
+        .status(status)
+        .createdAt(date.atTime(9, 0))
+        .items(List.of(items))
+        .build();
+  }
+
+  private void givenSales(OrderDTO... orders) {
+    when(orderService.getCachedOrders()).thenReturn(List.of(orders));
+    when(bookService.getCachedBooks())
+        .thenReturn(
+            List.of(
+                book("hp", "Harry Potter", "Fantasy", 3),
+                book("it", "IT", "Horror", 50),
+                book("gg", "Gone Girl", "Thriller", 0)));
+  }
+
+  @SuppressWarnings("unchecked")
+  private static List<Map<String, Object>> list(Map<String, Object> result, String key) {
+    return (List<Map<String, Object>>) result.get(key);
+  }
+
+  // Top bán chạy của 1 quý: xếp hạng sách + thể loại, so sánh với quý trước, bỏ đơn hủy / chờ
+  @Test
+  void topBooksByQuarter_shouldRankBooksAndCategories() {
+    givenSales(
+        sale("A", 3, LocalDate.of(2025, 7, 5), line("hp", 5), line("it", 1)),
+        sale("B", 1, LocalDate.of(2025, 8, 9), line("hp", 2), line("gg", 3)),
+        sale("C", 4, LocalDate.of(2025, 8, 10), line("it", 40)), // đã hủy
+        sale("D", 0, LocalDate.of(2025, 9, 1), line("it", 40)), // chờ xác nhận
+        sale("E", 3, LocalDate.of(2025, 5, 1), line("hp", 1), line("gg", 4))); // quý trước
+
+    Map<String, Object> result =
+        statisticsService.getTopBooks(
+            GroupBy.QUARTER, LocalDate.of(2025, 8, 15), null, null, 10, false);
+
+    assertEquals(LocalDate.of(2025, 7, 1), result.get("from"));
+    assertEquals(LocalDate.of(2025, 9, 30), result.get("to"));
+    assertEquals("Quý 3/2025", result.get("label"));
+    assertEquals("Quý 2/2025", result.get("previousLabel"));
+
+    List<Map<String, Object>> books = list(result, "books");
+    assertEquals(3, books.size());
+    assertEquals(1, books.get(0).get("rank"));
+    assertEquals("Harry Potter", books.get(0).get("title"));
+    assertEquals(7L, books.get(0).get("quantity"));
+    assertEquals(2L, books.get(0).get("orderCount"));
+    assertEquals(1L, books.get(0).get("previousQuantity"));
+    assertEquals(6L, books.get(0).get("change"));
+    assertEquals("Gone Girl", books.get(1).get("title"));
+
+    List<Map<String, Object>> categories = list(result, "categories");
+    assertEquals("Fantasy", categories.get(0).get("name"));
+    assertEquals("Harry Potter", categories.get(0).get("topBook"));
+    assertEquals("Thriller", categories.get(1).get("name"));
+    assertEquals("Horror", categories.get(2).get("name"));
+    assertEquals(11L, summary(result).get("quantity"));
+    assertEquals(5L, summary(result).get("previousQuantity"));
+
+    // chỉ tính đơn giao thành công
+    Map<String, Object> delivered =
+        statisticsService.getTopBooks(
+            GroupBy.QUARTER, LocalDate.of(2025, 8, 15), null, null, 10, true);
+    assertEquals(6L, summary(delivered).get("quantity"));
+  }
+
+  @Test
+  void topBooksByWeek_shouldUseMondayToSunday() {
+    givenSales(
+        sale("A", 3, LocalDate.of(2026, 11, 23), line("it", 2)),
+        sale("B", 2, LocalDate.of(2026, 11, 29), line("hp", 1)),
+        sale("C", 3, LocalDate.of(2026, 11, 30), line("hp", 9))); // tuần sau
+
+    Map<String, Object> result =
+        statisticsService.getTopBooks(
+            GroupBy.WEEK, LocalDate.of(2026, 11, 26), null, null, 1, false);
+
+    assertEquals(LocalDate.of(2026, 11, 23), result.get("from"));
+    assertEquals(LocalDate.of(2026, 11, 29), result.get("to"));
+    assertEquals("Tuần 48/2026 (23/11 – 29/11/2026)", result.get("label"));
+    List<Map<String, Object>> books = list(result, "books");
+    assertEquals(1, books.size()); // limit = 1
+    assertEquals("IT", books.get(0).get("title"));
+  }
+
+  // Mỗi quý một bảng xếp hạng riêng
+  @Test
+  void bestsellersByQuarter_shouldRankEachPeriod() {
+    givenSales(
+        sale("A", 3, LocalDate.of(2025, 2, 1), line("it", 4), line("hp", 1)),
+        sale("B", 3, LocalDate.of(2025, 8, 1), line("hp", 6)),
+        sale("C", 3, LocalDate.of(2025, 8, 2), line("gg", 2)));
+
+    Map<String, Object> result =
+        statisticsService.getBestsellersByPeriod(
+            LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31), GroupBy.QUARTER, 5, false);
+
+    List<Map<String, Object>> rows = rows(result);
+    assertEquals(4, rows.size());
+    assertEquals("IT", rows.get(0).get("topBook"));
+    assertEquals("Horror", rows.get(0).get("topCategory"));
+    assertEquals(null, rows.get(1).get("topBook"));
+    assertEquals("Harry Potter", rows.get(2).get("topBook"));
+    assertEquals("Fantasy", rows.get(2).get("topCategory"));
+    assertEquals(8L, rows.get(2).get("quantity"));
+    assertEquals("2025-Q3", ((Map<?, ?>) result.get("best")).get("period"));
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> overall = (Map<String, Object>) result.get("overall");
+    assertEquals("Harry Potter", list(overall, "books").get(0).get("title"));
+    assertEquals(13L, overall.get("quantity"));
+  }
+
+  // Mùa vụ: quý 3 qua các năm -> dự báo = trung bình các năm đã kết thúc, đề xuất = dự báo - tồn
+  @Test
+  void seasonalQuarter_shouldForecastAndSuggestImport() {
+    int y1 = LocalDate.now().getYear() - 2;
+    int y2 = LocalDate.now().getYear() - 1;
+    givenSales(
+        sale("A", 3, LocalDate.of(y1, 1, 10), line("it", 1)), // quý 1: không thuộc mùa vụ
+        sale("B", 3, LocalDate.of(y1, 8, 1), line("hp", 10), line("it", 2)),
+        sale("C", 3, LocalDate.of(y2, 7, 20), line("hp", 20)),
+        sale("D", 3, LocalDate.of(y2, 9, 30), line("gg", 4)));
+
+    Map<String, Object> result = statisticsService.getSeasonal(GroupBy.QUARTER, 3, 10, false);
+
+    assertEquals("Quý 3", result.get("label"));
+    @SuppressWarnings("unchecked")
+    List<Integer> forecastYears = (List<Integer>) summary(result).get("forecastYears");
+    int n = forecastYears.size();
+    assertEquals(y1, forecastYears.get(0));
+
+    List<Map<String, Object>> books = list(result, "books");
+    assertEquals("Harry Potter", books.get(0).get("title"));
+    assertEquals(30L, books.get(0).get("quantity"));
+    assertEquals(30d / n, books.get(0).get("forecast"));
+    long expectedImport = Math.max(0, (long) Math.ceil(30d / n) - 3); // tồn kho 3
+    assertEquals(expectedImport, books.get(0).get("suggestedImport"));
+    // xu hướng = năm gần nhất - năm liền trước (trong các năm đã kết thúc)
+    Map<Integer, Long> hpByYear = Map.of(y1, 10L, y2, 20L);
+    long expectedTrend =
+        hpByYear.getOrDefault(forecastYears.get(n - 1), 0L)
+            - hpByYear.getOrDefault(forecastYears.get(n - 2), 0L);
+    assertEquals(expectedTrend, books.get(0).get("trend"));
+    assertEquals(
+        Map.of(String.valueOf(y1), 10L, String.valueOf(y2), 20L), books.get(0).get("byYear"));
+
+    List<Map<String, Object>> categories = list(result, "categories");
+    assertEquals("Fantasy", categories.get(0).get("name"));
+    assertEquals(36L, summary(result).get("quantity"));
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> statisticsService.getSeasonal(GroupBy.QUARTER, 5, 10, false));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> statisticsService.getSeasonal(GroupBy.YEAR, 1, 10, false));
+  }
+
   @Test
   void invalidInput_shouldThrow() {
-    assertThrows(IllegalArgumentException.class, () -> GroupBy.from("week"));
+    assertEquals(GroupBy.WEEK, GroupBy.from("week"));
+    assertThrows(IllegalArgumentException.class, () -> GroupBy.from("hour"));
     assertThrows(
         IllegalArgumentException.class,
         () ->

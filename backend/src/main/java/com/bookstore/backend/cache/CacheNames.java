@@ -5,7 +5,11 @@ public final class CacheNames {
   public static final String ORDERS = "orders";
   public static final String BOOKS = "books";
   public static final String CUSTOMERS = "customers";
+  public static final String STAFF = "staff";
   public static final String IMPORT_RECEIPTS = "importReceipts";
+  public static final String EXPORT_RECEIPTS = "exportReceipts";
+  public static final String STOCK_MOVEMENTS = "stockMovements";
+  public static final String SUPPLIERS = "suppliers";
 
   private CacheNames() {}
 }

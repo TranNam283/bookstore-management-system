@@ -46,6 +46,10 @@ class OrderService_CreateOrderTest {
   @Mock private PaymentRepository paymentRepository;
   @Mock private MomoService momoService;
 
+  @Mock private StockService stockService;
+
+  @Mock private ExportReceiptService exportReceiptService;
+
   @Spy private DataCacheRegistry cacheRegistry = new DataCacheRegistry();
 
   @InjectMocks private OrderService orderService;
